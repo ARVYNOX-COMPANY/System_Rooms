@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Hotel DB (Local)",
+      "Group": "Servers",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "hotel_db",
+      "Username": "admin",
+      "SSLMode": "prefer"
+    }
+  }
+}
