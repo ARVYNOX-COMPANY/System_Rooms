@@ -1,6 +1,6 @@
-# 🏨 Room Engine — Sistema de Gestión Hotelera
+# 🏨 System Rooms — Gestión de habitación de hoteles
 
-Sistema integral para la gestión de un hotel: control de habitaciones, check-in, check-out y caja. Diseñado con una arquitectura de tres capas (base de datos, backend y frontend) contenerizada con Docker para facilitar el desarrollo y despliegue.
+Sistema para la gestión de hoteles: control de habitaciones, check-in, check-out y caja. Diseñado con una arquitectura de tres capas (base de datos, backend y frontend) contenerizada con Docker para facilitar el desarrollo y despliegue.
 
 ---
 
@@ -23,7 +23,7 @@ Sistema integral para la gestión de un hotel: control de habitaciones, check-in
 
 ## 🎯 ¿Qué es?
 
-**Room Engine** es un sistema de gestión hotelera (PMS — *Property Management System*) que permite a la recepción de un hotel:
+**Room Engine** es un sistema para gestionar las habitaciones de hoteles (PMS — *Property Management System*) que permite a la recepción de un hotel:
 
 - Visualizar en tiempo real el estado de todas las habitaciones.
 - Realizar check-in y check-out de huéspedes.
