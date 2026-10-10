@@ -8,7 +8,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
     { label: 'Inicio', to: '/' },
     { label: 'Habitaciones', to: '/rooms' },
-    { label: 'Check-in / Check-out', to: '/check-in' },
+    { label: 'Check-in / Check-out', to: '/check' },
 ]
 
 export function Sidebar() {

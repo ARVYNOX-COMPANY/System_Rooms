@@ -39,3 +39,23 @@ export function getUniqueFloors(rooms: Room[]): number[] {
 export function getUniqueTypes(rooms: Room[]): string[] {
     return [...new Set(rooms.map((room) => room.type))].sort()
 }
+
+export function sortRooms(rooms: Room[]): Room[] {
+    return [...rooms].sort((a, b) => {
+        if (a.floor !== b.floor) return a.floor - b.floor
+        return a.number.localeCompare(b.number, undefined, { numeric: true })
+    })
+}
+
+export function groupRoomsByFloor(rooms: Room[]): { floor: number; rooms: Room[] }[] {
+    const sorted = sortRooms(rooms)
+    const map = new Map<number, Room[]>()
+    for (const room of sorted) {
+        const list = map.get(room.floor) ?? []
+        list.push(room)
+        map.set(room.floor, list)
+    }
+    return [...map.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([floor, floorRooms]) => ({ floor, rooms: floorRooms }))
+}

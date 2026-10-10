@@ -6,6 +6,7 @@ export interface Room {
   floor: number
   type: string
   status: RoomStatus
+  price: number
   guestName?: string
   checkOutDate?: string
 }
