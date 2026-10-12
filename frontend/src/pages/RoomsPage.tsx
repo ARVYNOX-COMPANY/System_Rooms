@@ -17,7 +17,7 @@ export function RoomsPage() {
     const [serverError, setServerError] = useState<string | null>(null)
 
     const allFloors = useMemo(() => getUniqueFloors(rooms), [rooms])
-    const { layout, syncFloors, setLayout } = useGridLayout(allFloors)
+    const { layout, syncFloors, setLayout } = useGridLayout()
 
     useEffect(() => {
         syncFloors(allFloors)

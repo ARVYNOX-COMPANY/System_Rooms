@@ -1,12 +1,14 @@
 export interface GridLayout {
   floorOrder: number[]
   hiddenFloors: number[]
+  hiddenRooms: string[]        // ← ids (números de habitación) ocultas
   columns: 4 | 5 | 6
 }
 
 export const DEFAULT_GRID_LAYOUT: GridLayout = {
   floorOrder: [],
   hiddenFloors: [],
+  hiddenRooms: [],
   columns: 6,
 }
 
@@ -18,9 +20,19 @@ export function loadGridLayout(): GridLayout {
     if (!raw) return DEFAULT_GRID_LAYOUT
     const parsed = JSON.parse(raw) as Partial<GridLayout>
     return {
-      floorOrder: Array.isArray(parsed.floorOrder) ? parsed.floorOrder.filter((n) => typeof n === 'number') : [],
-      hiddenFloors: Array.isArray(parsed.hiddenFloors) ? parsed.hiddenFloors.filter((n) => typeof n === 'number') : [],
-      columns: parsed.columns === 4 || parsed.columns === 5 || parsed.columns === 6 ? parsed.columns : 6,
+      floorOrder: Array.isArray(parsed.floorOrder)
+        ? parsed.floorOrder.filter((n) => typeof n === 'number')
+        : [],
+      hiddenFloors: Array.isArray(parsed.hiddenFloors)
+        ? parsed.hiddenFloors.filter((n) => typeof n === 'number')
+        : [],
+      hiddenRooms: Array.isArray(parsed.hiddenRooms)
+        ? parsed.hiddenRooms.filter((s) => typeof s === 'string')
+        : [],
+      columns:
+        parsed.columns === 4 || parsed.columns === 5 || parsed.columns === 6
+          ? parsed.columns
+          : 6,
     }
   } catch {
     return DEFAULT_GRID_LAYOUT

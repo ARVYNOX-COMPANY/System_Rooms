@@ -1,25 +1,43 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRooms } from '../hooks/useRooms'
 import { checkIn, checkOut, marcarLimpia  } from '../api/check'
+// import { getCheckoutInfo, nightsBetween } from '../utils/checkoutInfo'
 import type { Room } from '../types/room'
+import type { Reserva } from '../types/reserva'
+import { getReservaActivaPorHabitacion } from '../api/reservas'
+import { loadGridLayout } from '../types/gridLayout'
+
 
 type Tab = 'checkin' | 'checkout' | 'limpiar'
+
 
 export function CheckPage() {
     const [tab, setTab] = useState<Tab>('checkin')
     const { rooms, loading, error, reload } = useRooms()
+    const layout = loadGridLayout()
+
+    // ⭐ Filtrar habitaciones ocultas (por piso o individuales)
+    const visibleRooms = useMemo(
+        () =>
+            rooms.filter(
+                (r) =>
+                    !layout.hiddenFloors.includes(r.floor) &&
+                    !layout.hiddenRooms.includes(r.id),
+            ),
+        [rooms, layout],
+    )
 
     const habitacionesLibres = useMemo(
-        () => rooms.filter(r => r.status === 'LIBRE'),
-        [rooms],
+        () => visibleRooms.filter(r => r.status === 'LIBRE'),
+        [visibleRooms],
     )
     const habitacionesOcupadas = useMemo(
-        () => rooms.filter(r => r.status === 'OCUPADA'),
-        [rooms],
+        () => visibleRooms.filter(r => r.status === 'OCUPADA'),
+        [visibleRooms],
     )
     const habitacionesSucias = useMemo(
-        () => rooms.filter(r => r.status === 'SUCIA'),
-        [rooms],
+        () => visibleRooms.filter(r => r.status === 'SUCIA'),
+        [visibleRooms],
     )
 
     if (loading) return <p className="text-slate-600">Cargando habitaciones...</p>
@@ -111,6 +129,8 @@ function CheckInSection({
     const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
     const [guestName, setGuestName] = useState('')
     const [documentId, setDocumentId] = useState('')
+    const [telefono, setTelefono] = useState('')
+    const [email, setEmail] = useState('')
     const [checkOutDate, setCheckOutDate] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [feedback, setFeedback] = useState<{ type: 'ok' | 'error'; msg: string } | null>(null)
@@ -129,7 +149,14 @@ function CheckInSection({
         setFeedback(null)
 
         try {
-            await checkIn(selectedRoom)
+            await checkIn(selectedRoom, {
+                guestName,
+                documentId,
+                telefono,
+                email,
+                checkInDate: hoyISO(),
+                checkOutDate,
+            })
             setFeedback({
                 type: 'ok',
                 msg: `Check-in exitoso en habitación ${selectedRoom.number}`,
@@ -137,6 +164,8 @@ function CheckInSection({
             setSelectedRoom(null)
             setGuestName('')
             setDocumentId('')
+            setTelefono('')
+            setEmail('')
             setCheckOutDate('')
             onSuccess()
         } catch (err) {
@@ -248,6 +277,26 @@ function CheckInSection({
                                 placeholder="12345678"
                                 className="input"
                                 required
+                            />
+                        </Field>
+
+                        <Field label="Teléfono (opcional)">
+                            <input
+                                type="tel"
+                                value={telefono}
+                                onChange={e => setTelefono(e.target.value)}
+                                placeholder="555-1234"
+                                className="input"
+                            />
+                        </Field>
+
+                        <Field label="Email (opcional)">
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="juan@mail.com"
+                                className="input"
                             />
                         </Field>
 
@@ -365,14 +414,32 @@ function CheckOutDetail({
     onSuccess: () => void
     onClose: () => void
 }) {
+    const [reserva, setReserva] = useState<Reserva | null>(null)
+    const [loadingReserva, setLoadingReserva] = useState(true)
+    const [errorReserva, setErrorReserva] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
-    const [feedback, setFeedback] = useState<{ type: 'ok' | 'error'; msg: string } | null>(null)
+    const [feedback, setFeedback] = useState<{ type: 'ok' | 'error'; msg: string } | null>(
+        null,
+    )
+
+    useEffect(() => {
+        setLoadingReserva(true)
+        setErrorReserva(null)
+        getReservaActivaPorHabitacion(room.number)
+            .then(r => {
+                if (!r) throw new Error('No hay reserva activa para esta habitación')
+                setReserva(r)
+            })
+            .catch(e => setErrorReserva(e.message))
+            .finally(() => setLoadingReserva(false))
+    }, [room.number])
 
     async function handleCheckOut() {
+        if (!reserva) return
         setSubmitting(true)
         setFeedback(null)
         try {
-            await checkOut(room)
+            await checkOut(reserva.id)
             setFeedback({ type: 'ok', msg: `Check-out exitoso de ${room.number}` })
             onSuccess()
             setTimeout(onClose, 1200)
@@ -382,6 +449,37 @@ function CheckOutDetail({
             setSubmitting(false)
         }
     }
+
+    if (loadingReserva) {
+        return (
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-sm text-slate-500">Cargando reserva...</p>
+            </div>
+        )
+    }
+
+    if (errorReserva) {
+        return (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-800">{errorReserva}</p>
+                <button
+                    onClick={onClose}
+                    className="mt-2 text-sm underline text-red-700"
+                >
+                    Cerrar
+                </button>
+            </div>
+        )
+    }
+
+    if (!reserva) return null
+
+    const noches = Math.ceil(
+        (new Date(reserva.fecha_salida).getTime() -
+            new Date(reserva.fecha_entrada).getTime()) /
+            (1000 * 60 * 60 * 24),
+    )
+    const total = noches * Number(room.price)
 
     return (
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -397,15 +495,52 @@ function CheckOutDetail({
                 </button>
             </div>
 
+            {/* Huésped */}
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                <h3 className="text-sm font-medium text-slate-700">Huésped</h3>
+                <p className="mt-1 text-sm font-semibold">
+                    {reserva.huesped.nombre_completo}
+                </p>
+                <p className="text-xs text-slate-500">
+                    Doc: {reserva.huesped.documento_identidad}
+                </p>
+                {reserva.huesped.telefono && (
+                    <p className="text-xs text-slate-500">
+                        Tel: {reserva.huesped.telefono}
+                    </p>
+                )}
+                {reserva.huesped.email && (
+                    <p className="text-xs text-slate-500">{reserva.huesped.email}</p>
+                )}
+            </div>
+
+            {/* Estadía */}
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div>
-                    <span className="text-slate-500">Tipo:</span>{' '}
-                    <span className="font-medium">{room.type}</span>
+                    <span className="text-slate-500">Entrada:</span>{' '}
+                    <span className="font-medium">{reserva.fecha_entrada}</span>
+                </div>
+                <div>
+                    <span className="text-slate-500">Salida:</span>{' '}
+                    <span className="font-medium">{reserva.fecha_salida}</span>
+                </div>
+                <div>
+                    <span className="text-slate-500">Noches:</span>{' '}
+                    <span className="font-medium">{noches}</span>
                 </div>
                 <div>
                     <span className="text-slate-500">Precio/noche:</span>{' '}
-                    <span className="font-mono font-medium">${Number(room.price).toFixed(2)}</span>
+                    <span className="font-mono font-medium">
+                        ${Number(room.price).toFixed(2)}
+                    </span>
                 </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between rounded-md bg-slate-900 px-4 py-3 text-white">
+                <span className="text-sm">Total a cobrar</span>
+                <span className="text-lg font-semibold font-mono">
+                    ${total.toFixed(2)}
+                </span>
             </div>
 
             {feedback && (

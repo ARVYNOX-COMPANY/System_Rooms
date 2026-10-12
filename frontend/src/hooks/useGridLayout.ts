@@ -7,7 +7,7 @@ import {
   type GridLayout,
 } from '../types/gridLayout'
 
-/** Une el layout guardado con los pisos reales: agrega pisos nuevos al final, elimina los que ya no existen. */
+
 function mergeWithFloors(layout: GridLayout, floors: number[]): GridLayout {
   const sorted = [...floors].sort((a, b) => a - b)
   if (layout.floorOrder.length === 0) {
@@ -22,8 +22,8 @@ function mergeWithFloors(layout: GridLayout, floors: number[]): GridLayout {
   }
 }
 
-export function useGridLayout(allFloors: number[]) {
-  const [layout, setLayout] = useState<GridLayout>(() => mergeWithFloors(loadGridLayout(), allFloors))
+export function useGridLayout() {
+  const [layout, setLayout] = useState<GridLayout>(loadGridLayout)
 
   const update = useCallback((patch: Partial<GridLayout>) => {
     setLayout((prev) => {
@@ -34,6 +34,7 @@ export function useGridLayout(allFloors: number[]) {
   }, [])
 
   const syncFloors = useCallback((floors: number[]) => {
+    if (floors.length === 0) return
     setLayout((prev) => mergeWithFloors(prev, floors))
   }, [])
 

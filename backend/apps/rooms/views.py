@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from . import services
 from .models import Habitacion
 from .serializers import HabitacionSerializer
+from .pricing import PRECIOS_POR_TIPO
 
 
 class HabitacionViewSet(
@@ -64,3 +65,30 @@ class HabitacionViewSet(
         self.get_object()  # 404 si no existe
         habitacion = services.marcar_limpia(pk)
         return Response(HabitacionSerializer(habitacion).data)
+
+    @action(detail=False, methods=["get"], url_path="precios-por-tipo")
+    def precios_por_tipo(self, request):
+        """Devuelve el mapa de precios por tipo. Público."""
+        return Response(PRECIOS_POR_TIPO)
+
+
+# class ReservaViewSet(
+#     mixins.ListModelMixin,
+#     mixins.RetrieveModelMixin,
+#     mixins.CreateModelMixin,
+#     mixins.UpdateModelMixin,
+#     viewsets.GenericViewSet,
+# ):
+#     queryset = Reserva.objects.all()
+#     serializer_class = ReservaSerializer
+#     permission_classes = [AllowAny]  # TEMPORAL para desarrollo
+
+#     def get_queryset(self):
+#         qs = super().get_queryset()
+#         estado = self.request.query_params.get("estado")
+#         piso = self.request.query_params.get("piso")
+#         if estado:
+#             qs = qs.filter(estado=estado.upper())
+#         if piso:
+#             qs = qs.filter(piso=piso)
+#         return qs

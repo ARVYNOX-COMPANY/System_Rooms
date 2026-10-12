@@ -10,6 +10,7 @@ api_v1 = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("", include("apps.rooms.urls")),
+    path("", include("apps.frontdesk.urls"))
 ]
 
 urlpatterns = [

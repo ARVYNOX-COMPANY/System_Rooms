@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createRoomSchema, type CreateRoomData, type CreateRoomInput } from '../schemas/roomSchema'
 import { STATUS_DOT_STYLES, STATUS_LABEL, STATUS_ORDER } from '../constants/roomStatus'
+import { getPreciosPorTipo, type PreciosPorTipo } from '../api/pricing'
 
 interface CreateRoomModalProps {
   open: boolean
@@ -13,9 +14,17 @@ interface CreateRoomModalProps {
   onSubmit: (input: CreateRoomData) => Promise<void>
 }
 
-const inputClass = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+const inputClass =
+  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
 
-export function CreateRoomModal({ open, saving, serverError, initialFloor = 1, onClose, onSubmit }: CreateRoomModalProps) {
+export function CreateRoomModal({
+  open,
+  saving,
+  serverError,
+  initialFloor = 1,
+  onClose,
+  onSubmit,
+}: CreateRoomModalProps) {
   const {
     register,
     handleSubmit,
@@ -26,14 +35,52 @@ export function CreateRoomModal({ open, saving, serverError, initialFloor = 1, o
     formState: { errors },
   } = useForm<CreateRoomInput, unknown, CreateRoomData>({
     resolver: zodResolver(createRoomSchema),
-    defaultValues: { numero: '', tipo: 'SIMPLE', piso: 1, precio_base: 50, estado: 'LIBRE' },
+    defaultValues: {
+      numero: '',
+      tipo: 'SIMPLE',
+      piso: 1,
+      precio_base: 50,
+      estado: 'LIBRE',
+    },
   })
+
   const estadoValue = watch('estado')
+  const tipoValue = watch('tipo')
 
+  // Precios por tipo traídos del backend
+  const [precios, setPrecios] = useState<PreciosPorTipo>({})
+
+  // 1️⃣ Cargar precios del backend al abrir el modal
   useEffect(() => {
-    if (open) reset({ numero: '', tipo: 'SIMPLE', piso: initialFloor, precio_base: 50, estado: 'LIBRE' })
-  }, [open, initialFloor, reset])
+    if (!open) return
+    getPreciosPorTipo()
+      .then(setPrecios)
+      .catch((err) => console.error('Error cargando precios:', err))
+  }, [open])
 
+  // 2️⃣ Reset del form al abrir (con precio del tipo por defecto)
+  useEffect(() => {
+    if (!open) return
+    const precioInicial = precios['SIMPLE'] ?? 50
+    reset({
+      numero: '',
+      tipo: 'SIMPLE',
+      piso: initialFloor,
+      precio_base: precioInicial,
+      estado: 'LIBRE',
+    })
+  }, [open, initialFloor, reset, precios])
+
+  // 3️⃣ Auto-rellenar precio_base cuando cambia el tipo
+  useEffect(() => {
+    if (!tipoValue || precios[tipoValue] === undefined) return
+    setValue('precio_base', precios[tipoValue], {
+      shouldValidate: true,
+      shouldDirty: true,
+    })
+  }, [tipoValue, precios, setValue])
+
+  // Mostrar error del servidor en el campo "numero"
   useEffect(() => {
     if (serverError?.toLowerCase().includes('numero')) {
       setError('numero', { message: serverError })
@@ -76,13 +123,31 @@ export function CreateRoomModal({ open, saving, serverError, initialFloor = 1, o
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium">Piso</label>
-              <input {...register('piso', { valueAsNumber: true })} type="number" min={1} max={50} className={inputClass} />
+              <input
+                {...register('piso', { valueAsNumber: true })}
+                type="number"
+                min={1}
+                max={50}
+                className={inputClass}
+              />
               {errors.piso && <p className="text-sm text-red-600">{errors.piso.message}</p>}
             </div>
+
             <div>
               <label className="text-sm font-medium">Precio base</label>
-              <input {...register('precio_base', { valueAsNumber: true })} type="number" min={0.01} step={0.01} className={inputClass} />
-              {errors.precio_base && <p className="text-sm text-red-600">{errors.precio_base.message}</p>}
+              <input
+                {...register('precio_base', { valueAsNumber: true })}
+                type="number"
+                readOnly
+                tabIndex={-1}
+                className={`${inputClass} cursor-not-allowed bg-slate-100 text-slate-600`}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Se asigna automáticamente según el tipo.
+              </p>
+              {errors.precio_base && (
+                <p className="text-sm text-red-600">{errors.precio_base.message}</p>
+              )}
             </div>
           </div>
 
@@ -97,12 +162,16 @@ export function CreateRoomModal({ open, saving, serverError, initialFloor = 1, o
                     type="button"
                     aria-pressed={active}
                     onClick={() => setValue('estado', s, { shouldValidate: true })}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${active
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
-                      }`}
+                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${
+                      active
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
                   >
-                    <span className={`h-2 w-2 rounded-full ${STATUS_DOT_STYLES[s]}`} aria-hidden />
+                    <span
+                      className={`h-2 w-2 rounded-full ${STATUS_DOT_STYLES[s]}`}
+                      aria-hidden
+                    />
                     {STATUS_LABEL[s]}
                   </button>
                 )

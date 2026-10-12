@@ -13,13 +13,14 @@ Rutas en `src/App.tsx` bajo `AppLayout + Sidebar`: `/` Home, `/rooms` Habitacion
 
 - `api/client.ts` — `apiFetch` base (`VITE_API_URL` + JSON + error por status)
 - `api/rooms.ts` — `GET /habitaciones/`, `POST /habitaciones/` (desempaqueta `{ habitacion }` del upsert del backend)
-- `api/check.ts` — `PATCH /habitaciones/{id}/` (`OCUPADA`/`SUCIA`) y `POST .../marcar-limpia/`, con `findBackendId(numero → id)`
+- `api/check.ts` — `PATCH /habitaciones/{id}/` (`OCUPADA`/`SUCIA`) y `POST .../marcar-limpia/`, con `findBackendId(numero → id)`. Guarda además huésped/fechas en `localStorage` (ver `utils/checkoutInfo.ts`)
 - `hooks/useRooms.ts` — lista + `addRoom` (crea y luego `load()` para dejar la grilla idéntica al GET)
 - `hooks/useGridLayout.ts` — orden/ocultos/columnas en `localStorage['room-grid-layout']`
 - `components/` — `RoomGrid`, `RoomCard`, `RoomFilters`, `RoomSummary`, `AddRoomCard`, `CreateRoomModal`, `EditGridModal`, `layout/`
 - `schemas/roomSchema.ts` — Zod (`numero ≤10, tipo SIMPLE/DOBLE/SUITE, piso 1-50, precio >0, estado default LIBRE`), con `valueAsNumber` en números
 - `types/room.ts` + `types/gridLayout.ts` — `Room`, `RoomStatus`, `GridLayout { floorOrder, hiddenFloors, columns 4|5|6 }`
 - `utils/filterRooms.ts` — `filterRooms`, `sortRooms` (piso asc + número natural), `groupRoomsByFloor`, `getUniqueFloors/Types`
+- `utils/checkoutInfo.ts` — guarda/lee/limpia datos del huésped por habitación en `localStorage` (`checkout-info-NUMERO`) + `nightsBetween`
 
 ## Habitaciones (`RoomsPage` + `RoomGrid`)
 
@@ -36,8 +37,13 @@ Sin datos ni llamadas API, solo punto de entrada y navegación.
 ## Recepción / Check-in-out
 
 `CheckPage.tsx` + `api/check.ts`: tres tabs con contadores (libres/ocupadas/sucias).
-Check-in: elige habitación LIBRE + nombre/documento/fecha de salida, calcula noches y depósito y hace `PATCH estado → OCUPADA`.
-Check-out: elige OCUPADA y hace `PATCH → SUCIA`. Limpiar: lista SUCIAS con `POST marcar-limpia/` para volver a LIBRE.
+Check-in: elige habitación LIBRE + nombre/documento/fecha de salida, calcula noches y depósito, hace `PATCH estado → OCUPADA` y guarda huésped/fechas en `localStorage`.
+Check-out: click en OCUPADA abre el panel con habitación (tipo/piso/tarifa) + huésped (nombre/documento/entrada/salida) + precio final (noches × tarifa) leídos de `localStorage`; si no hay datos (otro equipo o versión anterior) muestra aviso. Confirmar hace `PATCH → SUCIA` y limpia la clave local. Limpiar: lista SUCIAS con `POST marcar-limpia/` para volver a LIBRE.
+
+## Pendiente backend — reserva en check-in
+
+Que el check-in guarde al huésped en el servidor para que el checkout lo lea “de la reserva” y lo vea cualquier recepcionista desde cualquier equipo.
+Hoy el check-in (`api/check.ts:checkIn`, llamado en `CheckPage.tsx`) solo hace `PATCH estado → OCUPADA` y descarta nombre/documento/salida en el servidor: no crea fila `Reserva`/`Huesped`. El front lo resolvió en local (`utils/checkoutInfo.ts`, clave `checkout-info-NUMERO`), que solo funciona en el mismo navegador. El trabajo pendiente es que el check-in cree `Huesped + Reserva(CHECKIN)` en transacción junto al cambio a `OCUPADA`; entonces el front puede volver a leer del endpoint y tirar el `localStorage`.
 
 ## Config y Docker
 
