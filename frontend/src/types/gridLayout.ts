@@ -1,14 +1,14 @@
 export interface GridLayout {
   floorOrder: number[]
   hiddenFloors: number[]
-  hiddenRooms: string[]        // ← ids (números de habitación) ocultas
+  // hiddenRooms: string[]        // ← ids (números de habitación) ocultas
   columns: 4 | 5 | 6
 }
 
 export const DEFAULT_GRID_LAYOUT: GridLayout = {
   floorOrder: [],
   hiddenFloors: [],
-  hiddenRooms: [],
+  // hiddenRooms: [],
   columns: 6,
 }
 
@@ -26,9 +26,9 @@ export function loadGridLayout(): GridLayout {
       hiddenFloors: Array.isArray(parsed.hiddenFloors)
         ? parsed.hiddenFloors.filter((n) => typeof n === 'number')
         : [],
-      hiddenRooms: Array.isArray(parsed.hiddenRooms)
-        ? parsed.hiddenRooms.filter((s) => typeof s === 'string')
-        : [],
+      // hiddenRooms: Array.isArray(parsed.hiddenRooms)
+      //   ? parsed.hiddenRooms.filter((s) => typeof s === 'string')
+      //   : [],
       columns:
         parsed.columns === 4 || parsed.columns === 5 || parsed.columns === 6
           ? parsed.columns

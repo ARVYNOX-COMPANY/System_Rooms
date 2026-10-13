@@ -7,7 +7,7 @@ from .pricing import precio_para_tipo
 class HabitacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Habitacion
-        fields = ["id", "numero", "tipo", "piso", "estado", "precio_base"]
+        fields = ["id", "numero", "tipo", "piso", "estado", "precio_base", "oculta"] # oculta va por patch por eso no va en read_only_fields
         read_only_fields = ["precio_base"]   # ← el cliente NO puede enviarlo
 
     def validate_estado(self, value):

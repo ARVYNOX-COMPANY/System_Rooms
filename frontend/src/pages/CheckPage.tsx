@@ -5,7 +5,7 @@ import { checkIn, checkOut, marcarLimpia  } from '../api/check'
 import type { Room } from '../types/room'
 import type { Reserva } from '../types/reserva'
 import { getReservaActivaPorHabitacion } from '../api/reservas'
-import { loadGridLayout } from '../types/gridLayout'
+// import { loadGridLayout } from '../types/gridLayout'
 
 
 type Tab = 'checkin' | 'checkout' | 'limpiar'
@@ -14,17 +14,12 @@ type Tab = 'checkin' | 'checkout' | 'limpiar'
 export function CheckPage() {
     const [tab, setTab] = useState<Tab>('checkin')
     const { rooms, loading, error, reload } = useRooms()
-    const layout = loadGridLayout()
+    // const layout = loadGridLayout()
 
     // ⭐ Filtrar habitaciones ocultas (por piso o individuales)
     const visibleRooms = useMemo(
-        () =>
-            rooms.filter(
-                (r) =>
-                    !layout.hiddenFloors.includes(r.floor) &&
-                    !layout.hiddenRooms.includes(r.id),
-            ),
-        [rooms, layout],
+        () => rooms.filter((r) => !r.oculta),
+        [rooms],
     )
 
     const habitacionesLibres = useMemo(

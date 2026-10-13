@@ -7,6 +7,7 @@ export interface Room {
   type: string
   status: RoomStatus
   price: number
+  oculta: boolean 
   guestName?: string
   checkOutDate?: string
 }

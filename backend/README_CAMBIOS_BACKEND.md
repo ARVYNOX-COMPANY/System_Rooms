@@ -1,6 +1,6 @@
 # 📘 Cambios en el Backend — Room Engine
 
-Documentación de los cambios realizados en el backend para habilitar el flujo completo de gestión de habitaciones, check-in/check-out, y precios automáticos por tipo.
+Documentación de los cambios realizados en el backend para habilitar el flujo completo de gestión de habitaciones, check-in/check-out, precios automáticos por tipo y ocultamiento de habitaciones (directo con un boolean en la base de datos).
 
 **Última actualización:** Octubre 2026
 
@@ -18,13 +18,15 @@ Documentación de los cambios realizados en el backend para habilitar el flujo c
 | 6 | `apps/frontdesk/urls.py` | 🆕 Creado | Router de reservas |
 | 7 | `config/urls.py` | ✏️ Modificado | Registra rutas de frontdesk |
 | 8 | `apps/cashier/migrations/0001_initial.py` | 🔄 Regenerado | Limpieza de migraciones |
-| 9 | `apps/rooms/views.py` | ✏️ Modificado | Upsert + AllowAny + endpoint precios |
-| 10 | `apps/rooms/serializers.py` | ✏️ Modificado | Estado escribible + precio auto |
-| 11 | `apps/rooms/pricing.py` | 🆕 Creado | Fuente única de precios |
-| 12 | `config/settings.py` | ✏️ Modificado | Postgres + CORS + CSRF |
-| 13 | `database/init.sql` | ✏️ Simplificado | Solo extensiones |
-| 14 | `docker-compose.yml` | ✏️ Modificado | Variables POSTGRES_* |
-| 15 | `docker-compose.override.yml` | 🆕 Creado | Volume mount del backend |
+| 9 | `apps/rooms/models.py` | ✏️ Modificado | Campo `oculta` |
+| 10 | `apps/rooms/migrations/000X_habitacion_oculta.py` | 🆕 Generado | Migración del campo `oculta` |
+| 11 | `apps/rooms/serializers.py` | ✏️ Modificado | Estado escribible + precio auto + `oculta` |
+| 12 | `apps/rooms/views.py` | ✏️ Modificado | Upsert + AllowAny + precios + filtro `oculta` |
+| 13 | `apps/rooms/pricing.py` | 🆕 Creado | Fuente única de precios |
+| 14 | `config/settings.py` | ✏️ Modificado | Postgres + CORS + CSRF |
+| 15 | `database/init.sql` | ✏️ Simplificado | Solo extensiones |
+| 16 | `docker-compose.yml` | ✏️ Modificado | Variables POSTGRES_* |
+| 17 | `docker-compose.override.yml` | 🆕 Creado | Volume mount del backend |
 
 ---
 
@@ -141,39 +143,86 @@ api_v1 = [
 
 ---
 
-## 9️⃣ `apps/rooms/views.py`
+## 9️⃣ `apps/rooms/models.py`
 
-**Qué cambió:**
-1. Agregado `permission_classes = [AllowAny]` (**TEMPORAL**)
-2. Sobrescrito `create()` para hacer upsert por `numero`
-3. Agregada acción `precios_por_tipo()` que expone el endpoint `GET /habitaciones/precios-por-tipo/`
-
-**Qué genera:**
-- Endpoint público sin JWT
-- POST con `numero` existente → actualiza en vez de duplicar
-- Nuevo endpoint que devuelve el mapa de precios:
+**Qué cambió:** Se agregó el campo `oculta` al modelo `Habitacion`.
 
 ```python
-@action(detail=False, methods=["get"], url_path="precios-por-tipo")
-def precios_por_tipo(self, request):
-    """Devuelve el mapa de precios por tipo."""
-    return Response(PRECIOS_POR_TIPO)
+class Habitacion(models.Model):
+    numero = models.CharField(max_length=10, unique=True)
+    tipo = models.CharField(max_length=20, choices=TipoEnum.choices)
+    piso = models.SmallIntegerField()
+    estado = models.CharField(max_length=10, choices=EstadoEnum.choices, default="LIBRE")
+    precio_base = models.DecimalField(max_digits=10, decimal_places=2)
+    oculta = models.BooleanField(default=False)   # ← NUEVO
+
+    class Meta:
+        db_table = "habitaciones"
+        ordering = ["numero"]
 ```
 
-**Respuesta esperada:**
-```json
-{ "SIMPLE": 50, "DOBLE": 80, "SUITE": 150 }
-```
+**Qué genera:**
+- Nueva columna `oculta` en la tabla `habitaciones` de Postgres
+- Valor por defecto: `false` (todas las habitaciones nacen visibles)
+
+**Por qué:**
+- Antes las habitaciones ocultas se guardaban en `localStorage` del navegador
+- No se compartía entre usuarios ni dispositivos
+- Se perdía al limpiar caché del navegador
+- Ahora vive en la DB y todos ven lo mismo
+
+**Independencia con `estado`:**
+- `oculta` es independiente de `estado` (LIBRE/OCUPADA/SUCIA)
+- Una habitación puede estar `oculta=true` + `estado=LIBRE` (mantenimiento)
+- O `oculta=false` + `estado=LIBRE` (disponible normal)
 
 ---
 
-## 🔟 `apps/rooms/serializers.py`
+## 🔟 `apps/rooms/migrations/000X_habitacion_oculta.py`
+
+**Qué cambió:** Migración generada por `makemigrations rooms`.
+
+**Qué genera:**
+
+```python
+operations = [
+    migrations.AddField(
+        model_name='habitacion',
+        name='oculta',
+        field=models.BooleanField(default=False),
+    ),
+]
+```
+
+**Cómo aplicarla:**
+
+```bash
+docker exec -it hotel_backend python manage.py makemigrations rooms
+docker exec -it hotel_backend python manage.py migrate
+```
+
+**Verificación en pgAdmin:**
+
+```sql
+SELECT column_name, data_type, column_default
+FROM information_schema.columns
+WHERE table_name = 'habitaciones' AND column_name = 'oculta';
+```
+
+| column_name | data_type | column_default |
+|-------------|-----------|----------------|
+| oculta | boolean | false |
+
+---
+
+## 1️⃣1️⃣ `apps/rooms/serializers.py`
 
 **Qué cambió:**
 - Eliminado `read_only_fields = ["estado"]` (ahora es escribible)
 - Agregado `validate_estado` que valida `LIBRE`, `OCUPADA`, `SUCIA`
 - **`precio_base` ahora es `read_only`** — nunca se acepta del cliente
 - `create()` y `update()` **calculan automáticamente** el precio según el tipo
+- **`oculta` agregado a `fields` como campo escribible**
 
 **Qué genera:**
 
@@ -181,7 +230,7 @@ def precios_por_tipo(self, request):
 class HabitacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Habitacion
-        fields = ["id", "numero", "tipo", "piso", "estado", "precio_base"]
+        fields = ["id", "numero", "tipo", "piso", "estado", "precio_base", "oculta"]
         read_only_fields = ["precio_base"]
 
     def validate_estado(self, value):
@@ -199,11 +248,60 @@ class HabitacionSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 ```
 
-**Blindaje:** Aunque el cliente mande un `precio_base` falso, el backend lo **ignora** y usa el correcto según el tipo.
+**Blindaje:**
+- Aunque el cliente mande un `precio_base` falso, el backend lo **ignora**
+- `oculta` **NO** está en `read_only_fields` → es escribible por el frontend
+- `PATCH /habitaciones/{id}/` acepta `{ "oculta": true }` para ocultar
 
 ---
 
-## 1️⃣1️⃣ `apps/rooms/pricing.py`
+## 1️⃣2️⃣ `apps/rooms/views.py`
+
+**Qué cambió:**
+1. Agregado `permission_classes = [AllowAny]` (**TEMPORAL**)
+2. Sobrescrito `create()` para hacer upsert por `numero`
+3. Agregada acción `precios_por_tipo()` que expone el endpoint `GET /habitaciones/precios-por-tipo/`
+4. **Agregado filtro por `oculta` en `get_queryset`**
+
+**Qué genera:**
+
+```python
+def get_queryset(self):
+    qs = super().get_queryset()
+    estado = self.request.query_params.get("estado")
+    piso = self.request.query_params.get("piso")
+    oculta = self.request.query_params.get("oculta")
+
+    if estado:
+        qs = qs.filter(estado=estado.upper())
+    if piso:
+        qs = qs.filter(piso=piso)
+    if oculta is not None:
+        qs = qs.filter(oculta=oculta.lower() == "true")
+    return qs
+
+@action(detail=False, methods=["get"], url_path="precios-por-tipo")
+def precios_por_tipo(self, request):
+    """Devuelve el mapa de precios por tipo."""
+    return Response(PRECIOS_POR_TIPO)
+```
+
+**Respuestas esperadas:**
+
+```json
+// GET /habitaciones/
+[ { "id": 1, "numero": "101", "oculta": false, ... } ]
+
+// GET /habitaciones/?oculta=false  → solo visibles
+// GET /habitaciones/?oculta=true   → solo ocultas
+
+// GET /habitaciones/precios-por-tipo/
+{ "SIMPLE": 50, "DOBLE": 80, "SUITE": 150 }
+```
+
+---
+
+## 1️⃣3️⃣ `apps/rooms/pricing.py`
 
 **Qué cambió:** Archivo nuevo con la fuente única de precios.
 
@@ -228,7 +326,7 @@ def precio_para_tipo(tipo: str) -> int:
 
 ---
 
-## 1️⃣2️⃣ `config/settings.py`
+## 1️⃣4️⃣ `config/settings.py`
 
 **Qué cambió:**
 
@@ -244,7 +342,7 @@ def precio_para_tipo(tipo: str) -> int:
 
 ---
 
-## 1️⃣3️⃣ `database/init.sql`
+## 1️⃣5️⃣ `database/init.sql`
 
 **Qué cambió:** Se eliminó todo excepto:
 
@@ -256,7 +354,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ---
 
-## 1️⃣4️⃣ `docker-compose.yml`
+## 1️⃣6️⃣ `docker-compose.yml`
 
 **Qué cambió:** El backend recibe variables `POSTGRES_*` en vez de `DATABASE_URL`.
 
@@ -264,7 +362,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ---
 
-## 1️⃣5️⃣ `docker-compose.override.yml`
+## 1️⃣7️⃣ `docker-compose.override.yml`
 
 **Qué cambió:** Agregado volume mount del backend.
 
@@ -320,9 +418,20 @@ curl -X POST http://localhost:8000/api/v1/habitaciones/ \
 # El backend ignora el precio y usa el correcto (50 para SIMPLE)
 ```
 
+### Probar ocultamiento
+```bash
+# Ocultar habitación 1
+curl -X PATCH http://localhost:8000/api/v1/habitaciones/1/ \
+  -H "Content-Type: application/json" \
+  -d '{ "oculta": true }'
+
+# Verificar filtro
+curl "http://localhost:8000/api/v1/habitaciones/?oculta=false"
+```
+
 ### Verificar en pgAdmin
 ```sql
-SELECT id, numero, tipo, precio_base FROM habitaciones ORDER BY numero;
+SELECT id, numero, tipo, precio_base, oculta FROM habitaciones ORDER BY numero;
 SELECT * FROM huespedes;
 SELECT * FROM reservas;
 ```
@@ -337,4 +446,5 @@ SELECT * FROM reservas;
 | Cuenta con cargos/pagos | 🟡 Media |
 | Módulo de caja | 🟡 Media |
 | Precios configurables desde DB (en vez de hardcoded) | 🟡 Media |
+| Auditoría de quién ocultó una habitación y cuándo | 🟢 Baja |
 | Tests automatizados | 🟢 Baja |

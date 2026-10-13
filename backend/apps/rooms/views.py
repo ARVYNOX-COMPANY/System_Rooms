@@ -25,10 +25,21 @@ class HabitacionViewSet(
         qs = super().get_queryset()
         estado = self.request.query_params.get("estado")
         piso = self.request.query_params.get("piso")
+        oculta = self.request.query_params.get("oculta")
+        todas = self.request.query_params.get("todas")
+
+        # Por defecto: solo visibles
+        if todas != "true":
+            if oculta is None:
+                qs = qs.filter(oculta=False)
+            else:
+                qs = qs.filter(oculta=oculta.lower() == "true")
+
         if estado:
             qs = qs.filter(estado=estado.upper())
         if piso:
             qs = qs.filter(piso=piso)
+
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -70,6 +81,48 @@ class HabitacionViewSet(
     def precios_por_tipo(self, request):
         """Devuelve el mapa de precios por tipo. Público."""
         return Response(PRECIOS_POR_TIPO)
+
+    @action(detail=False, methods=["post"], url_path="ocultar-piso")
+    def ocultar_piso(self, request):
+        """
+        Oculta o muestra TODAS las habitaciones de un piso.
+        Body: { "piso": 3, "oculta": true }
+        """
+        piso = request.data.get("piso")
+        oculta = request.data.get("oculta", True)
+
+        if piso is None:
+            return Response(
+                {"error": "El campo 'piso' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Normalizar booleano (por si viene como string desde el front)
+        if isinstance(oculta, str):
+            oculta = oculta.lower() == "true"
+        else:
+            oculta = bool(oculta)
+
+        qs = Habitacion.objects.filter(piso=piso)
+        total = qs.count()
+
+        if total == 0:
+            return Response(
+                {"error": f"No hay habitaciones en el piso {piso}."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        actualizadas = qs.update(oculta=oculta)
+
+        return Response(
+            {
+                "piso": piso,
+                "oculta": oculta,
+                "actualizadas": actualizadas,
+                "habitaciones": HabitacionSerializer(qs, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # class ReservaViewSet(

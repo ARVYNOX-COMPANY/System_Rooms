@@ -8,9 +8,11 @@ import { useRooms } from '../hooks/useRooms'
 import type { CreateRoomData } from '../schemas/roomSchema'
 import type { GridLayout } from '../types/gridLayout'
 import { getUniqueFloors } from '../utils/filterRooms'
+// import { toggleOculta } from '../api/rooms'
+import { toggleOculta, togglePisoOculta } from '../api/rooms'
 
 export function RoomsPage() {
-    const { rooms, loading, error, saving, addRoom } = useRooms()
+    const { rooms, loading, error, saving, addRoom, reload } = useRooms()
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isGridOpen, setIsGridOpen] = useState(false)
     const [prefillFloor, setPrefillFloor] = useState(1)
@@ -18,6 +20,12 @@ export function RoomsPage() {
 
     const allFloors = useMemo(() => getUniqueFloors(rooms), [rooms])
     const { layout, syncFloors, setLayout } = useGridLayout()
+
+    // Filtrar habitaciones ocultas
+    const visibleRooms = useMemo(
+        () => rooms.filter((r) => !r.oculta),
+        [rooms],
+    )
 
     useEffect(() => {
         syncFloors(allFloors)
@@ -49,6 +57,27 @@ export function RoomsPage() {
         setIsGridOpen(false)
     }
 
+    // Handler dentro del componente (tiene acceso a reload)
+    const handleToggleRoom = async (roomId: string, oculta: boolean) => {
+        try {
+            await toggleOculta(roomId, oculta)
+            reload()
+        } catch (err) {
+            console.error('Error al ocultar habitación:', err)
+        }
+    }
+
+    // Handler para ocultar/mostrar todas las habitaciones de un piso
+    const handleToggleFloor = async (floor: number, oculta: boolean) => {
+        try {
+            await togglePisoOculta(floor, oculta)
+            reload()
+        } catch (err) {
+            console.error('Error al ocultar piso:', err)
+            throw err
+        }
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -68,8 +97,13 @@ export function RoomsPage() {
                 <p className="text-red-600">Error al cargar: {error}</p>
             ) : (
                 <>
-                    <RoomSummary rooms={rooms} />
-                    <RoomGrid rooms={rooms} layout={layout} onAddFloor={openForFloor} onEditGrid={() => setIsGridOpen(true)} />
+                    <RoomSummary rooms={visibleRooms} />
+                    <RoomGrid
+                        rooms={visibleRooms}
+                        layout={layout}
+                        onAddFloor={openForFloor}
+                        onEditGrid={() => setIsGridOpen(true)}
+                    />
                 </>
             )}
 
@@ -81,6 +115,7 @@ export function RoomsPage() {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleCreate}
             />
+
             <EditGridModal
                 open={isGridOpen}
                 rooms={rooms}
@@ -91,6 +126,8 @@ export function RoomsPage() {
                     setIsGridOpen(false)
                     openForFloor(floor)
                 }}
+                onToggleRoom={handleToggleRoom}
+                onToggleFloor={handleToggleFloor}
             />
         </div>
     )

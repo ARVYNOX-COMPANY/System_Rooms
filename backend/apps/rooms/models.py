@@ -21,6 +21,7 @@ class Habitacion(models.Model):
     precio_base = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
+    oculta = models.BooleanField(default=False)
 
     class Meta:
         db_table = "habitaciones"

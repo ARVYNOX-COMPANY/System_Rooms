@@ -9,6 +9,7 @@ interface RoomApiData {
   piso: number
   estado: RoomStatus
   precio_base: number
+  oculta: boolean
 }
 
 function mapRoom(h: RoomApiData): Room {
@@ -18,7 +19,8 @@ function mapRoom(h: RoomApiData): Room {
     floor: h.piso,
     type: h.tipo,
     status: h.estado,
-    price: Number(h.precio_base) // Asegurarse de que el precio sea un número
+    price: Number(h.precio_base), // Asegurarse de que el precio sea un número
+    oculta: h.oculta
   }
 }
 
@@ -41,4 +43,20 @@ export async function createRoom(input: CreateRoomInput): Promise<Room> {
 
   const raw = 'habitacion' in data ? data.habitacion : data
   return mapRoom(raw)
+}
+
+// ocultar habitacion individual en DB
+export async function toggleOculta(id: string, oculta: boolean): Promise<void> {
+  await apiFetch(`/habitaciones/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ oculta }),
+  })
+}
+
+// ocultar piso completo en DB
+export async function togglePisoOculta(piso: number, oculta: boolean): Promise<void> {
+  await apiFetch('/habitaciones/ocultar-piso/', {
+    method: 'POST',
+    body: JSON.stringify({ piso, oculta }),
+  })
 }

@@ -1,6 +1,6 @@
 # 🎨 Cambios en el Frontend — Room Engine
 
-Documentación de los cambios realizados en el frontend para integrarse con el backend real, gestión de grilla, y precios automáticos.
+Documentación de los cambios realizados en el frontend para integrarse con el backend real, gestión de grilla, precios automáticos y ocultamiento de habitaciones persistente.
 
 **Última actualización:** Octubre 2026
 
@@ -10,17 +10,17 @@ Documentación de los cambios realizados en el frontend para integrarse con el b
 
 | # | Archivo | Tipo | Propósito |
 |---|---------|------|-----------|
-| 1 | `src/types/room.ts` | ✏️ Modificado | Agregado `price` |
+| 1 | `src/types/room.ts` | ✏️ Modificado | `price` y `oculta` |
 | 2 | `src/types/reserva.ts` | 🆕 Creado | Tipos de Reserva/Huesped |
-| 3 | `src/types/gridLayout.ts` | ✏️ Modificado | Agregado `hiddenRooms` |
-| 4 | `src/api/rooms.ts` | ✏️ Modificado | Mapea `precio_base` → `price` |
+| 3 | `src/types/gridLayout.ts` | ✏️ Modificado | Removido `hiddenRooms` |
+| 4 | `src/api/rooms.ts` | ✏️ Modificado | Mapper + `toggleOculta` + `id` real |
 | 5 | `src/api/reservas.ts` | 🆕 Creado | Cliente de reservas |
 | 6 | `src/api/pricing.ts` | 🆕 Creado | Cliente de precios |
 | 7 | `src/api/check.ts` | ✏️ Reemplazado | Endpoints reales |
 | 8 | `src/hooks/useRooms.ts` | ✏️ Modificado | Expone `reload` |
-| 9 | `src/pages/CheckPage.tsx` | ✏️ Modificado | Check-in/out reales + filtro ocultos |
-| 10 | `src/pages/RoomsPage.tsx` | ✏️ Modificado | Usa `useRooms` + filtra ocultos |
-| 11 | `src/components/EditGridModal.tsx` | ✏️ Modificado | Ocultar habitaciones + nuevo piso |
+| 9 | `src/pages/CheckPage.tsx` | ✏️ Modificado | Filtro por `r.oculta` |
+| 10 | `src/pages/RoomsPage.tsx` | ✏️ Modificado | Handler `handleToggleRoom` |
+| 11 | `src/components/EditGridModal.tsx` | ✏️ Modificado | Toggle oculta al backend |
 | 12 | `src/components/CreateRoomModal.tsx` | ✏️ Modificado | Precio auto por tipo |
 | 13 | `src/utils/checkoutInfo.ts` | 🗑️ Eliminado | Ya no se usa localStorage |
 | 14 | `src/data/rooms.ts` | 🗑️ Eliminado | Ya no se usa el mock |
@@ -32,7 +32,7 @@ Documentación de los cambios realizados en el frontend para integrarse con el b
 
 ## 1️⃣ `src/types/room.ts`
 
-**Qué cambió:** Se agregó el campo `price: number`.
+**Qué cambió:** Se agregaron los campos `price` y `oculta`.
 
 ```typescript
 export interface Room {
@@ -42,10 +42,13 @@ export interface Room {
   type: string
   status: RoomStatus
   price: number          // ← NUEVO
+  oculta: boolean        // ← NUEVO
   guestName?: string
   checkOutDate?: string
 }
 ```
+
+**Qué genera:** El frontend sabe el precio real y si la habitación está oculta.
 
 ---
 
@@ -70,41 +73,110 @@ export interface Reserva {
 
 ## 3️⃣ `src/types/gridLayout.ts`
 
-**Qué cambió:** Se agregó `hiddenRooms` para permitir ocultar habitaciones individuales.
+**Qué cambió:** Se eliminó `hiddenRooms` porque el estado de ocultamiento ahora vive en la DB.
 
+**Antes:**
 ```typescript
 export interface GridLayout {
   floorOrder: number[]
   hiddenFloors: number[]
-  hiddenRooms: string[]        // ← NUEVO
+  hiddenRooms: string[]        // ← ELIMINADO
   columns: 4 | 5 | 6
 }
 ```
 
-**Qué genera:**
-- Compatibilidad con layouts viejos en localStorage (default vacío)
-- Se puede ocultar un piso completo **o** una habitación individual
+**Ahora:**
+```typescript
+export interface GridLayout {
+  floorOrder: number[]
+  hiddenFloors: number[]
+  columns: 4 | 5 | 6
+}
+
+export const DEFAULT_GRID_LAYOUT: GridLayout = {
+  floorOrder: [],
+  hiddenFloors: [],
+  columns: 6,
+}
+```
+
+**Aclaración importante:**
+- `hiddenFloors` **sigue en localStorage** porque es una **preferencia personal de vista**
+- `oculta` de cada habitación es **estado del sistema** → va en la DB
+
+**Por qué:**
+Antes había 2 sistemas mezclados:
+1. `hiddenFloors` (localStorage) → "no quiero ver este piso en MI vista"
+2. `hiddenRooms` (localStorage) → "esta habitación está fuera de servicio"
+
+El segundo era un error de diseño: **el estado operativo de una habitación debe compartirse entre todos los usuarios**, no vivir en el navegador de cada uno.
 
 ---
 
 ## 4️⃣ `src/api/rooms.ts`
 
-**Qué cambió:** El mapper convierte `precio_base` (string del backend) a `price` (number).
+**Qué cambió:** 2 modificaciones importantes.
 
+### A. El mapper usa el `id` real del backend y mapea `oculta`
+
+**Antes:**
 ```typescript
 function mapHabitacion(h: HabitacionBackend): Room {
   return {
-    id: h.numero,
+    id: h.numero,              // ← rompía si editabas el número
     number: h.numero,
     floor: h.piso,
     type: h.tipo,
     status: h.estado,
-    price: Number(h.precio_base),   // ← CONVERSIÓN CRÍTICA
+    price: Number(h.precio_base),
   }
 }
 ```
 
-**Qué genera:** `room.price` es un número real, `.toFixed()` funciona sin errores.
+**Ahora:**
+```typescript
+interface HabitacionBackend {
+  id: number
+  numero: string
+  tipo: string
+  piso: number
+  estado: RoomStatus
+  precio_base: number
+  oculta: boolean              // ← NUEVO
+}
+
+function mapHabitacion(h: HabitacionBackend): Room {
+  return {
+    id: String(h.id),          // ← id real del backend
+    number: h.numero,
+    floor: h.piso,
+    type: h.tipo,
+    status: h.estado,
+    price: Number(h.precio_base),
+    oculta: h.oculta,          // ← NUEVO
+  }
+}
+```
+
+**Por qué:**
+- Si el admin edita el número (101 → 105), el `id` interno sigue siendo el mismo
+- React mantiene los `key={room.id}` estables (no re-renderiza toda la lista)
+- Las APIs REST usan el id numérico real
+
+### B. Nueva función `toggleOculta`
+
+```typescript
+export async function toggleOculta(id: string, oculta: boolean): Promise<void> {
+  await apiFetch(`/habitaciones/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ oculta }),
+  })
+}
+```
+
+**Qué genera:**
+- Una sola función para ocultar/mostrar
+- `PATCH /habitaciones/{id}/` con `{ "oculta": true/false }`
 
 ---
 
@@ -170,7 +242,7 @@ return {
   loading,
   error,
   saving,
-  reload: load,     // ← usado por CheckPage
+  reload: load,     // ← usado por CheckPage y RoomsPage
   addRoom,
 }
 ```
@@ -181,9 +253,9 @@ return {
 
 **Qué cambió:**
 
-- Imports: se agregó `getReservaActivaPorHabitacion`, `useEffect`, `Reserva`, `loadGridLayout`
+- Imports: se agregó `getReservaActivaPorHabitacion`, `useEffect`, `Reserva`
 - `useRooms()`: usa `reload` en vez de `refresh`
-- **NUEVO:** Filtra habitaciones según el `GridLayout` (oculta las que están en `hiddenFloors` o `hiddenRooms`)
+- **Filtro simplificado:** lee de `room.oculta` (DB) en lugar de `layout.hiddenRooms` (localStorage)
 - `CheckInSection`:
   - Nuevos `useState`: `telefono`, `email`
   - 2 nuevos `<Field>` en el formulario
@@ -197,16 +269,9 @@ return {
 **Filtro nuevo:**
 
 ```tsx
-const layout = loadGridLayout()
-
 const visibleRooms = useMemo(
-  () =>
-    rooms.filter(
-      (r) =>
-        !layout.hiddenFloors.includes(r.floor) &&
-        !layout.hiddenRooms.includes(r.id),
-    ),
-  [rooms, layout],
+  () => rooms.filter((r) => !r.oculta),
+  [rooms],
 )
 ```
 
@@ -216,43 +281,130 @@ const visibleRooms = useMemo(
 
 ## 🔟 `src/pages/RoomsPage.tsx`
 
-**Qué cambió:** Eliminado el mock, usa `useRooms()` + filtro de ocultos.
+**Qué cambió:** 3 modificaciones.
 
-```tsx
-const { rooms, loading, error } = useRooms()
-const layout = loadGridLayout()
+### A. `reload` destructurado del hook
 
+```typescript
+const { rooms, loading, error, saving, addRoom, reload } = useRooms()
+```
+
+### B. Handler `handleToggleRoom` **dentro** del componente
+
+**Antes (roto):** estaba fuera del componente, sin acceso a `reload`:
+```typescript
+async function handleToggleRoom(roomId: string, oculta: boolean) {
+  await toggleOculta(roomId, oculta)
+  reload()   // ← error: reload no existe acá
+}
+```
+
+**Ahora (correcto):**
+```typescript
+const handleToggleRoom = async (roomId: string, oculta: boolean) => {
+  try {
+    await toggleOculta(roomId, oculta)
+    reload()
+  } catch (err) {
+    console.error('Error al ocultar habitación:', err)
+  }
+}
+```
+
+### C. `visibleRooms` filtra por `r.oculta`
+
+```typescript
 const visibleRooms = useMemo(
-  () =>
-    rooms.filter(
-      (r) =>
-        !layout.hiddenFloors.includes(r.floor) &&
-        !layout.hiddenRooms.includes(r.id),
-    ),
-  [rooms, layout],
-)
-
-return (
-  <div className="flex flex-col gap-4">
-    <h1 className="text-xl font-semibold">Habitaciones</h1>
-    <RoomSummary rooms={visibleRooms} />
-    <RoomGrid rooms={visibleRooms} />
-  </div>
+  () => rooms.filter((r) => !r.oculta),
+  [rooms],
 )
 ```
 
-**Qué genera:** El grid principal respeta lo que el admin ocultó desde el modal de edición.
+### D. Import agregado
+
+```typescript
+import { toggleOculta } from '../api/rooms'
+```
+
+**Qué genera:**
+- El grid principal respeta las habitaciones ocultas
+- Al ocultar/mostrar, la lista se recarga automáticamente
+- Sin errores de `reload undefined`
 
 ---
 
 ## 1️⃣1️⃣ `src/components/EditGridModal.tsx`
 
-**Qué cambió:** 3 modificaciones clave.
+**Qué cambió:** El toggle de habitación ahora llama al backend.
 
-### A. Ocultar habitaciones individuales
-Se agregó estado `hiddenRooms` y un botón `👁 / 🚫` sobre cada tarjeta de la vista previa. Al guardar, se persiste en el `GridLayout`.
+### A. Nueva prop `onToggleRoom`
 
-### B. Crear piso sin auto-rellenar
+```typescript
+interface EditGridModalProps {
+  open: boolean
+  rooms: Room[]
+  initialLayout: GridLayout
+  onClose: () => void
+  onSave: (layout: GridLayout) => void
+  onAddFloor: (floor: number) => void
+  onToggleRoom: (roomId: string, oculta: boolean) => Promise<void>   // ← NUEVO
+}
+```
+
+### B. Se eliminó el estado `hiddenRooms` local
+
+**Antes:**
+```typescript
+const [hiddenRooms, setHiddenRooms] = useState<string[]>(
+  initialLayout.hiddenRooms ?? [],
+)
+
+const toggleRoom = (roomId: string) =>
+  setHiddenRooms((prev) =>
+    prev.includes(roomId) ? prev.filter((id) => id !== roomId) : [...prev, roomId],
+  )
+```
+
+**Ahora:** No existe. El estado vive en `room.oculta` (DB).
+
+### C. El botón `🚫` llama directamente al backend
+
+**Antes:**
+```tsx
+<button onClick={() => toggleRoom(room.id)}>
+  {isRoomHidden ? '👁' : '🚫'}
+</button>
+```
+
+**Ahora:**
+```tsx
+<button onClick={() => onToggleRoom(room.id, !room.oculta)}>
+  {room.oculta ? '👁' : '🚫'}
+</button>
+```
+
+### D. La opacidad refleja `room.oculta` (del backend)
+
+```tsx
+<div className={room.oculta ? 'opacity-40' : ''}>
+  <RoomCard room={room} />
+</div>
+```
+
+### E. El `onSave` ya no manda `hiddenRooms`
+
+**Antes:**
+```typescript
+onSave({ floorOrder, hiddenFloors: hidden, hiddenRooms, columns })
+```
+
+**Ahora:**
+```typescript
+onSave({ floorOrder, hiddenFloors: hidden, columns })
+```
+
+### F. Nuevo piso sin auto-rellenar
+
 **Antes:**
 ```tsx
 <button onClick={() => onAddFloor(nextFloor)}>
@@ -276,15 +428,12 @@ const [newFloor, setNewFloor] = useState('')
 </form>
 ```
 
-### C. onSave incluye `hiddenRooms`
-```tsx
-onSave({ floorOrder, hiddenFloors: hidden, hiddenRooms, columns })
-```
-
 **Qué genera:**
-- El admin puede ocultar habitaciones individuales (no solo pisos)
+- Click en `🚫` → `PATCH /habitaciones/{id}/` con `{ "oculta": true }`
+- La opacidad se actualiza al instante
+- Al guardar el modal, solo persiste la config de pisos y columnas
+- El estado de oculta **ya se guardó** con cada click (no espera a "Guardar")
 - El campo de nuevo piso arranca **vacío** con placeholder
-- Los cambios se persisten en localStorage
 
 ---
 
@@ -432,17 +581,32 @@ docker-compose up --build
 | Intentar editar precio | No se puede (read-only) |
 | Crear habitación | Se guarda con el precio correcto |
 | Abrir "Editar grilla" | Campo "Nuevo piso" vacío |
-| Ocultar habitación con `🚫` | Se ve con opacidad reducida |
-| Guardar y volver al grid | La habitación no aparece |
+| Click en `🚫` sobre habitación | Se ve con opacidad reducida |
+| Cerrar modal | La habitación no aparece en el grid |
+| Recargar página (F5) | La habitación **sigue oculta** ✅ |
 | Hacer check-in | Huésped + reserva guardados en DB |
 | Hacer check-out | Carga datos del huésped automáticamente |
 | Marcar limpia | Habitación vuelve a LIBRE |
 
 **4. F12 → Network para verificar las peticiones:**
 - `GET /api/v1/habitaciones/precios-por-tipo/` → 200
+- `PATCH /api/v1/habitaciones/{id}/` (oculta) → 200
 - `POST /api/v1/reservas/checkin/` → 201
 - `POST /api/v1/reservas/{id}/checkout/` → 200
 - `POST /api/v1/habitaciones/{id}/marcar-limpia/` → 200
+
+---
+
+## 🎯 Diferencia clave: ocultamiento antes vs ahora
+
+| Aspecto | Antes (localStorage) | Ahora (DB) |
+|---------|----------------------|------------|
+| **Persistencia** | Solo en tu navegador | En el servidor |
+| **Compartición** | No, cada uno tenía su vista | Sí, todos ven lo mismo |
+| **Si editás el número** | Se perdía el estado oculto | Se mantiene (por `id`) |
+| **Si borrás caché** | Se perdía | Se mantiene |
+| **Aparece en pgAdmin** | No | Sí |
+| **Entre dispositivos** | No se sincroniza | Se sincroniza |
 
 ---
 
@@ -452,7 +616,8 @@ docker-compose up --build
 |------|-----------|
 | Login JWT en frontend | 🔴 Alta |
 | Toast notifications en vez de feedback inline | 🟡 Media |
-| Aplicar precios automáticos en `EditRoomModal` | 🟡 Media |
+| Editar habitaciones (número, tipo, piso) | 🟡 Media |
+| Mostrar habitaciones ocultas en gris con cartel "Deshabilitada" | 🟡 Media |
 | Tests con vitest | 🟢 Baja |
 
 ---
@@ -464,6 +629,10 @@ LIBRE (🟢)  ──check-in──▶  OCUPADA (🔴)  ──check-out──▶ 
    ▲                                                          │
    │                    marcar-limpia                         │
    └──────────────────────────────────────────────────────────┘
+
+Estados independientes:
+oculta = false  →  La habitación aparece en el grid
+oculta = true   →  La habitación desaparece del grid
 ```
 
 ---
@@ -485,5 +654,28 @@ LIBRE (🟢)  ──check-in──▶  OCUPADA (🔴)  ──check-out──▶ 
 │  Backend RECALCULA el precio (blindaje)          │
 │              ↓                                   │
 │  Se guarda en DB con el precio correcto          │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔒 Ocultamiento de habitaciones
+
+```
+┌──────────────────────────────────────────────────┐
+│  Admin hace click en 🚫 sobre la habitación      │
+│              ↓                                   │
+│  Frontend: PATCH /habitaciones/{id}/             │
+│            { "oculta": true }                    │
+│              ↓                                   │
+│  Backend actualiza la DB                         │
+│              ↓                                   │
+│  RoomsPage llama a reload()                      │
+│              ↓                                   │
+│  La habitación desaparece del grid               │
+│              ↓                                   │
+│  Otros usuarios ven el cambio al recargar        │
+│              ↓                                   │
+│  Al recargar el navegador, sigue oculta ✅       │
 └──────────────────────────────────────────────────┘
 ```

@@ -11,6 +11,8 @@ interface EditGridModalProps {
   onClose: () => void
   onSave: (layout: GridLayout) => void
   onAddFloor: (floor: number) => void
+  onToggleRoom: (roomId: string, oculta: boolean) => Promise<void>
+  onToggleFloor: (floor: number, oculta: boolean) => Promise<void>
 }
 
 const gridClassFor = (columns: number) =>
@@ -23,18 +25,28 @@ export function EditGridModal({
   onClose,
   onSave,
   onAddFloor,
+  onToggleRoom,
+  onToggleFloor,
 }: EditGridModalProps) {
   const allFloors = useMemo(
     () => [...new Set(rooms.map((r) => r.floor))].sort((a, b) => a - b),
     [rooms],
   )
   const [floorOrder, setFloorOrder] = useState<number[]>(initialLayout.floorOrder)
-  const [hidden, setHidden] = useState<number[]>(initialLayout.hiddenFloors)
-  const [hiddenRooms, setHiddenRooms] = useState<string[]>(
-    initialLayout.hiddenRooms ?? [],
-  )
+  // const [hidden, setHidden] = useState<number[]>(initialLayout.hiddenFloors)
+  // Un piso está "oculto" si TODAS sus habitaciones tienen oculta=true
+  const hiddenFloors = useMemo(() => {
+    const byFloor = new Map<number, boolean>()
+    for (const r of rooms) {
+      const prev = byFloor.get(r.floor)
+      byFloor.set(r.floor, prev === undefined ? r.oculta : prev && r.oculta)
+    }
+    return Array.from(byFloor.entries())
+      .filter(([, allHidden]) => allHidden)
+      .map(([floor]) => floor)
+  }, [rooms])
   const [columns, setColumns] = useState<4 | 5 | 6>(initialLayout.columns)
-  const [newFloor, setNewFloor] = useState('')     // ← estado del input de nuevo piso
+  const [newFloor, setNewFloor] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -47,10 +59,9 @@ export function EditGridModal({
         ? [...existing, ...sorted.filter((f) => !existing.includes(f))]
         : sorted
     setFloorOrder(merged.length > 0 ? merged : sorted)
-    setHidden(initialLayout.hiddenFloors)
-    setHiddenRooms(initialLayout.hiddenRooms ?? [])
+    // setHidden(initialLayout.hiddenFloors)
     setColumns(initialLayout.columns)
-    setNewFloor('')                                 // ← limpiar input al abrir
+    setNewFloor('')
   }, [open, allFloors, initialLayout])
 
   const counts = useMemo(() => {
@@ -60,13 +71,14 @@ export function EditGridModal({
   }, [rooms])
 
   const previewGroups = useMemo(() => {
-    const visible = rooms.filter((r) => !hidden.includes(r.floor))
+    // const visible = rooms.filter((r) => !hidden.includes(r.floor))
+    const visible = rooms.filter((r) => !hiddenFloors.includes(r.floor))
     const groups = groupRoomsByFloor(visible)
     const orderIdx = new Map(floorOrder.map((f, i) => [f, i]))
     return [...groups].sort(
       (a, b) => (orderIdx.get(a.floor) ?? 999) - (orderIdx.get(b.floor) ?? 999),
     )
-  }, [rooms, hidden, floorOrder])
+  }, [rooms, hiddenFloors, floorOrder])
 
   if (!open) return null
 
@@ -81,15 +93,23 @@ export function EditGridModal({
     })
   }
 
-  const toggleFloor = (floor: number) =>
-    setHidden((prev) =>
-      prev.includes(floor) ? prev.filter((f) => f !== floor) : [...prev, floor],
-    )
+  // const toggleFloor = (floor: number) =>
+  //   setHidden((prev) =>
+  //     prev.includes(floor) ? prev.filter((f) => f !== floor) : [...prev, floor],
+  //   )
 
-  const toggleRoom = (roomId: string) =>
-    setHiddenRooms((prev) =>
-      prev.includes(roomId) ? prev.filter((id) => id !== roomId) : [...prev, roomId],
-    )
+  const toggleFloor = async (floor: number) => {
+    const isHidden = hiddenFloors.includes(floor)
+    const nextOculta = !isHidden
+
+    try {
+      await onToggleFloor(floor, nextOculta)
+      // No hace falta hacer nada: `reload()` en el padre actualiza `rooms`,
+      // `hiddenFloors` se recalcula y el botón cambia solo.
+    } catch (e) {
+      console.error('Error al ocultar piso:', e)
+    }
+  }
 
   const handleAddFloor = (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,7 +132,7 @@ export function EditGridModal({
           <div>
             <h2 className="text-lg font-semibold">Editar grilla de habitaciones</h2>
             <p className="text-sm text-slate-500">
-              Reordena pisos, oculta los que no uses, ocultá habitaciones individuales y elegí columnas por fila.
+              Reordena pisos, ocúltalos, ocultá habitaciones individuales y elegí columnas por fila.
             </p>
           </div>
           <button
@@ -132,7 +152,7 @@ export function EditGridModal({
               <p className="text-sm text-slate-500">Aún no hay pisos.</p>
             )}
             {floorOrder.map((floor) => {
-              const isHidden = hidden.includes(floor)
+              const isHidden = hiddenFloors.includes(floor)
               return (
                 <div
                   key={floor}
@@ -182,7 +202,6 @@ export function EditGridModal({
               )
             })}
 
-            {/* ⭐ Nuevo piso: input vacío, no auto-rellena */}
             <form onSubmit={handleAddFloor} className="flex gap-2">
               <input
                 type="number"
@@ -228,7 +247,7 @@ export function EditGridModal({
             <div className="rounded-md bg-slate-100 p-3 text-sm">
               <p className="font-medium">Vista previa de la grilla</p>
               <p className="text-xs text-slate-500">
-                Hacé click en 👁 para ocultar habitaciones individuales.
+                Hacé click en 🚫 para ocultar una habitación individual.
               </p>
             </div>
             <div className="flex max-h-[50vh] flex-col gap-3 overflow-auto">
@@ -238,24 +257,21 @@ export function EditGridModal({
                     Piso {floor}
                   </p>
                   <div className={gridClassFor(columns)}>
-                    {floorRooms.map((room) => {
-                      const isRoomHidden = hiddenRooms.includes(room.id)
-                      return (
-                        <div key={room.id} className="relative">
-                          <div className={isRoomHidden ? 'opacity-40' : ''}>
-                            <RoomCard room={room} />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleRoom(room.id)}
-                            className="absolute right-1 top-1 rounded-md bg-white/90 px-2 py-0.5 text-xs shadow hover:bg-white"
-                            title={isRoomHidden ? 'Mostrar habitación' : 'Ocultar habitación'}
-                          >
-                            {isRoomHidden ? '👁' : '🚫'}
-                          </button>
+                    {floorRooms.map((room) => (
+                      <div key={room.id} className="relative">
+                        <div className={room.oculta ? 'opacity-40' : ''}>
+                          <RoomCard room={room} />
                         </div>
-                      )
-                    })}
+                        <button
+                          type="button"
+                          onClick={() => onToggleRoom(room.id, !room.oculta)}
+                          className="absolute right-1 top-1 rounded-md bg-white/90 px-2 py-0.5 text-xs shadow hover:bg-white"
+                          title={room.oculta ? 'Mostrar habitación' : 'Ocultar habitación'}
+                        >
+                          {room.oculta ? '👁' : '🚫'}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -280,9 +296,7 @@ export function EditGridModal({
             </button>
             <button
               type="button"
-              onClick={() =>
-                onSave({ floorOrder, hiddenFloors: hidden, hiddenRooms, columns })
-              }
+              onClick={() => onSave({ floorOrder, hiddenFloors: [], columns })}
               className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white"
             >
               ✓ Guardar cambios
