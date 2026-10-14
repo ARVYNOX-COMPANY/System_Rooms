@@ -24,8 +24,13 @@ function mapRoom(h: RoomApiData): Room {
   }
 }
 
+// export async function getRooms(): Promise<Room[]> {
+//   const data = await apiFetch<RoomApiData[]>('/habitaciones/')
+//   return data.map(mapRoom)
+// }
+
 export async function getRooms(): Promise<Room[]> {
-  const data = await apiFetch<RoomApiData[]>('/habitaciones/')
+  const data = await apiFetch<RoomApiData[]>('/habitaciones/?todas=true')
   return data.map(mapRoom)
 }
 

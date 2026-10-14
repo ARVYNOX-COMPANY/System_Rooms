@@ -23,12 +23,19 @@ class HabitacionViewSet(
 
     def get_queryset(self):
         qs = super().get_queryset()
+
+        # En detail (retrieve / update / partial_update / delete)
+        # siempre trabajamos sobre TODAS las habitaciones.
+        # El filtro de 'oculta' solo aplica al listado.
+        if self.action != "list":
+            return qs
+
         estado = self.request.query_params.get("estado")
         piso = self.request.query_params.get("piso")
         oculta = self.request.query_params.get("oculta")
         todas = self.request.query_params.get("todas")
 
-        # Por defecto: solo visibles
+        # Por defecto en el listado: solo visibles
         if todas != "true":
             if oculta is None:
                 qs = qs.filter(oculta=False)
