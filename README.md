@@ -1,197 +1,120 @@
-# 🏨 System Rooms — Gestión de habitación de hoteles
 
-Sistema para la gestión de hoteles: control de habitaciones, check-in, check-out y caja. Diseñado con una arquitectura de tres capas (base de datos, backend y frontend) contenerizada con Docker para facilitar el desarrollo y despliegue.
+### ¿Y las habitaciones "ocultas"?
 
----
+El administrador puede **ocultar** habitaciones (individuales o pisos enteros). Esto se usa cuando:
 
-## 📋 Tabla de Contenidos
+- Un piso está en refacción.
+- Una habitación se convirtió en depósito.
+- Cualquier situación donde la habitación **no debe aparecer en el tablero** por un tiempo.
 
-- [¿Qué es?](#-qué-es)
-- [¿Para qué sirve?](#-para-qué-sirve)
-- [Stack Tecnológico](#-stack-tecnológico)
-- [Arquitectura](#-arquitectura)
-- [Flujo de Trabajo](#-flujo-de-trabajo)
-- [Instalación y Ejecución](#-instalación-y-ejecución)
-- [Roadmap](#-roadmap)
-<!-- - [Variables de Entorno](#-variables-de-entorno)
-- [API Endpoints](#-api-endpoints)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Estrategia de Ramas](#-estrategia-de-ramas)
-- [Persistencia de Datos](#-persistencia-de-datos) -->
+Una habitación oculta:
+
+- **No aparece** en el tablero principal.
+- **No aparece** en la lista de check-in.
+- **No aparece** en el check-out.
+- **No aparece** en el reporte de limpieza.
+
+**Para volver a mostrarla**, el admin va al "Editor de Hotel" y hace click en **"Mostrar"** (o en el ícono 👁).
 
 ---
 
-## 🎯 ¿Qué es?
+## 🔧 Casos especiales
 
-**Room Engine** es un sistema para gestionar las habitaciones de hoteles (PMS — *Property Management System*) que permite a la recepción de un hotel:
+### "Mi cuenta está pendiente"
 
-- Visualizar en tiempo real el estado de todas las habitaciones.
-- Realizar check-in y check-out de huéspedes.
-- Gestionar la caja diaria (apertura y cierre de turno).
-- Administrar reservas y huéspedes.
+Al intentar entrar, ves el mensaje:
 
-Está diseñado como un proyecto modular que separa claramente la base de datos, la lógica de negocio (API) y la interfaz de usuario.
+> *"Tu cuenta está pendiente de aprobación por un administrador."*
 
----
+**Solución:** esperá a que el administrador apruebe tu cuenta. Si pasan más de 24 horas, contactalo.
 
-## 💡 ¿Para qué sirve?
+### "Mi cuenta está bloqueada"
 
-Centraliza la operación diaria de un hotel en una sola aplicación web. Reemplaza el uso de planillas y libretas por un sistema que:
+Al intentar entrar, ves el mensaje:
 
-- **Refleja el estado real** de cada habitación (`LIBRE`, `OCUPADA`, `SUCIA`).
-- **Automatiza el cambio de estados** según las acciones de recepción (check-in, check-out, marcar limpia).
-- **Registra cada movimiento de dinero** para auditoría y cierre de caja.
-- **Previene errores** al no permitir, por ejemplo, hacer check-in en una habitación ocupada.
+> *"Tu cuenta ha sido bloqueada. Contacta al administrador."*
 
-## 🛠 Stack Tecnológico
+**Solución:** el administrador bloqueó tu cuenta. Puede volver a activarla cuando quiera. Hablá con él para saber por qué.
 
-| Capa | Tecnología | Propósito |
-|------|------------|-----------|
-| **Base de Datos** | PostgreSQL 15 | Almacenamiento relacional de datos |
-| **Backend** | Django + Django REST Framework | API REST y lógica de negocio |
-| **Autenticación** | SimpleJWT | Autenticación con tokens JWT |
-| **Documentación API** | drf-spectacular (Swagger/OpenAPI) | Documentación interactiva |
-| **Frontend** | TypeScript + Vite + React | Interfaz de usuario |
-| **Estilos** | Tailwind CSS | Diseño responsivo |
-| **Servidor Web** | Nginx | Sirve los archivos estáticos del frontend |
-| **Administrador DB** | pgAdmin 4 | Interfaz gráfica para PostgreSQL |
-| **Contenedores** | Docker + Docker Compose | Orquestación de servicios |
+### "Olvidé mi contraseña"
 
-## 🏗 Arquitectura
+Por ahora **no hay un botón para recuperar contraseñas**. Tenés que pedirle al administrador que te genere una nueva (o que te avise un técnico).
 
-┌─────────────────────────────────────────────────────────────────┐
-│ USUARIO (Navegador) │
-└────────────────────────────┬────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────────┐
-│ FRONTEND (React + Vite + TypeScript) │
-│ Servido por Nginx en http://localhost:80 │
-└────────────────────────────┬────────────────────────────────────┘
-│ HTTP (JSON + JWT)
-▼
-┌─────────────────────────────────────────────────────────────────┐
-│ BACKEND (Django REST Framework) │
-│ API en http://localhost:8000/api/v1/ │
-│ Docs en http://localhost:8000/api/docs/ │
-└────────────────────────────┬────────────────────────────────────┘
-│ psycopg (TCP)
-▼
-┌─────────────────────────────────────────────────────────────────┐
-│ POSTGRESQL │
-│ Puerto 5432 — Base de datos: hotel_db │
-└────────────────────────────┬────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────────┐
-│ PGADMIN 4 │
-│ http://localhost:5050 — Administración visual de la DB │
-└─────────────────────────────────────────────────────────────────┘
+### "La habitación no aparece en el tablero"
 
-## 🔄 Flujo de Trabajo
+Puede ser por dos motivos:
 
-El sistema sigue el flujo descrito a continuación:
+1. **Está oculta** → el admin la ocultó. Solo el admin puede volver a mostrarla.
+2. **Filtro activo** → arriba del tablero podés tener activado un filtro por piso o por estado. Desactivalo para ver todas.
 
-1. **Abrir turno de caja** → El recepcionista inicia su jornada.
-2. **Grid de habitaciones** → Vista principal con el estado de cada habitación.
-3. A partir del grid, el recepcionista puede realizar 3 acciones:
+### "Hice check-in pero la habitación sigue libre"
 
-### 🔵 Check-in
-- Buscar reserva o crear *walk-in*.
-- Elegir habitación `LIBRE` y `LIMPIA`.
-- Cobrar depósito.
-- Cambiar estado a `OCUPADA`.
-
-### 🔴 Check-out
-- Ver cuenta (cargos y pagos).
-- Cobrar saldo pendiente.
-- Cambiar estado a `SUCIA`.
-
-### 🟢 Marcar Limpia
-- Recepción/limpieza confirma que la habitación fue aseada.
-- Cambiar estado a `LIBRE`.
-- Vuelve al grid.
-
-4. **Cerrar turno de caja** → Comparar monto esperado vs. contado.
+Puede ser que la página no se haya actualizado. **Refrescá** el navegador (tecla F5) o volvé a cargar la lista.
 
 ---
 
-## 🚀 Instalación y Ejecución
+## ❓ Preguntas frecuentes
 
-### Requisitos Previos
+### ¿Cómo creo un recepcionista?
 
-- Docker
-- Docker Compose
-- Git
+**No podés crearlo vos.** El recepcionista se registra solo desde la página web. Después vos (como admin) lo aprobás desde el dashboard.
 
-### Pasos
+### ¿Puedo cambiar la contraseña de un recepcionista?
 
-**1. Clonar el repositorio:**
-```bash
-git clone <url-del-repo>
-cd Room_Engine
-```
+Por ahora **no**. El recepcionista debe recordar su contraseña. En el futuro habrá un botón para esto.
 
-2. Crear el archivo .env en la raíz (ver sección Variables de Entorno):
+### ¿Qué pasa si un recepcionista se va del hotel?
 
-``` bash
-cp .env.example .env
-# Editar .env con tus valores
-```
-3. Levantar los servicios:
+Bloqueá su cuenta desde el dashboard. Así ya no puede entrar al sistema, pero queda el registro de lo que hizo en el pasado.
 
-```bash
-docker-compose up --build -d
-```
+### ¿Puedo eliminar completamente una cuenta?
 
-4. Aplicar migraciones:
+No desde la interfaz. Solo se puede **bloquear**. Si querés eliminarla de la base de datos, un técnico tiene que hacerlo.
 
-```bash
-docker exec -it hotel_backend python manage.py migrate
-```
-5. Crear superusuario para el admin:
+### ¿Los huéspedes pueden usar el sistema?
 
-```bash
-docker exec -it hotel_backend python manage.py createsuperuser
-```
-6. Cargar habitaciones de prueba (opcional):
+No. Este sistema es **solo para el personal del hotel**, no para los huéspedes. Los huéspedes se registran en el mostrador como siempre.
 
-```bash
-docker exec -it hotel_backend python manage.py seed_rooms
-```
+### ¿Funciona en el celular?
 
-7. Acceder a los servicios:
-``` bash
-Servicio	URL	Credenciales
-Frontend	http://localhost	—
-Backend API	http://localhost:8000/api/v1/	JWT
-Swagger Docs	http://localhost:8000/api/docs/	—
-Django Admin	http://localhost:8000/admin/	superuser
-pgAdmin	http://localhost:5050	admin@hotel.com / admin
-PostgreSQL	localhost:5432	admin / secretpassword
-```
+Sí, pero está diseñado para usarse en **computadora**. En el celular se ve el tablero pero es incómodo hacer check-in.
+
+### ¿Se guarda todo automáticamente?
+
+Sí. Cada acción (check-in, check-out, aprobar cuenta, etc.) se guarda **en el momento**. No hay un botón de "guardar" separado. Todo se guarda en el servidor del hotel.
+
+### ¿Puedo deshacer un check-in equivocado?
+
+Hoy no hay un botón para "deshacer". Si hiciste un check-in por error, tenés que hacer el check-out correspondiente y marcar la habitación como limpia manualmente.
+
 ---
 
-# 🗺 Roadmap
+## 🚀 Qué viene en el futuro
 
-### ✅ Completado
-- ☑ Base de datos PostgreSQL con volumen persistente
-- ☑ Backend Django + DRF con autenticación JWT
-- ☑ Modelo de habitaciones con estados (LIBRE, OCUPADA, SUCIA)
-- ☑ Endpoint /marcar-limpia/
-- ☑ Frontend Vite + TypeScript con grid de habitaciones
-- ☑ Integración Frontend ↔ Backend
-- ☑ Swagger UI para documentación de la API
-- ☑ pgAdmin pre-configurado con la conexión
+Estas son las cosas que **están planificadas** pero todavía no están funcionando:
 
-### 🚧 En desarrollo
-- □ Flujo completo de Check-in
-- □ Flujo completo de Check-out con cuenta
-- □ Gestión de caja (apertura/cierre de turno)
-- □ Login en el frontend con JWT
-- □ Modelo de huéspedes y reservas
-### 🔮 Futuro
-- □ Reportes y estadísticas
-- □ Notificaciones en tiempo real (WebSockets)
-- □ Tests automatizados (pytest + vitest)
-- □ Despliegue en producción
+- 📊 **Estadísticas reales** — números y gráficos del hotel en vivo.
+- 💰 **Módulo de caja** — abrir y cerrar turno con arqueo.
+- 🧾 **Imprimir facturas** al hacer check-out.
+- 🔧 **Modo "mantenimiento"** — habitaciones fuera de servicio temporalmente (se ven en gris).
+- 📱 **Notificaciones por WhatsApp** a los huéspedes.
+- 🌙 **Modo oscuro** para el turno noche.
+- 🔑 **Recuperar contraseña** desde la web.
+- 📈 **Reportes descargables** en PDF o Excel.
+- 💳 **Pagos con tarjeta** integrados.
+
+---
+
+## 📞 ¿Necesitás ayuda?
+
+Si tenés un problema técnico o no podés hacer algo:
+
+1. Revisá las [Preguntas frecuentes](#-preguntas-frecuentes).
+2. Contactá al administrador del sistema.
+3. Si el problema es técnico, avisale al equipo de desarrollo.
+
+---
+
+**Última actualización:** Octubre 2026
+
+**Versión del sistema:** 1.0
