@@ -1,3 +1,292 @@
+# 🏨 System Rooms — Guía del usuario
+
+Este documento explica **cómo funciona el sistema completo**, desde quién puede entrar hasta qué hace cada persona día a día.
+
+Está escrito para que lo entienda **cualquier persona**, no hace falta saber de programación.
+
+---
+
+## 📋 Índice
+
+1. [¿Qué es System Rooms?](#-qué-es-system-rooms)
+2. [¿Quién puede usar el sistema?](#-quién-puede-usar-el-sistema)
+3. [Primer día: cómo se arma el equipo](#-primer-día-cómo-se-arma-el-equipo)
+4. [El día a día del Recepcionista](#-el-día-a-día-del-recepcionista)
+5. [El día a día del Administrador](#-el-día-a-día-del-administrador)
+6. [El día a día del Supervisor](#-el-día-a-día-del-supervisor)
+7. [Los estados de una habitación](#-los-estados-de-una-habitación)
+8. [Casos especiales](#-casos-especiales)
+9. [Preguntas frecuentes](#-preguntas-frecuentes)
+10. [Qué viene en el futuro](#-qué-viene-en-el-futuro)
+
+---
+
+## 🎯 ¿Qué es System Rooms?
+
+Es un **programa para hoteles** que reemplaza las planillas de papel y las libretas.
+
+Permite:
+
+- Ver **el estado de cada habitación** en una sola pantalla (como un tablero).
+- Hacer **check-in** (cuando llega un huésped).
+- Hacer **check-out** (cuando se va).
+- Avisar cuándo una habitación está **lista para limpiar**.
+- Gestionar **quién puede entrar al sistema** (recepcionistas, supervisores, administradores).
+
+Todo se maneja desde el **navegador de internet**, igual que usar WhatsApp Web o Gmail. No hay que instalar nada.
+
+---
+
+## 👥 ¿Quién puede usar el sistema?
+
+Hay **tres tipos de personas** que usan el sistema, cada una con permisos distintos:
+
+### 🟢 Administrador (o "Admin")
+
+Es **el dueño** del sistema. Puede hacer **todo**:
+
+- Aprobar o bloquear cuentas de recepcionistas.
+- Crear, editar y ocultar habitaciones.
+- Reorganizar los pisos del hotel.
+- Ver estadísticas y reportes.
+- Hacer check-in y check-out también (si quiere).
+
+**Piensa en él como el "gerente general".**
+
+### 🔵 Supervisor
+
+Es **el encargado de supervisar**. Puede:
+
+- Ver estadísticas y reportes del hotel.
+- Editar la configuración visual del hotel (pisos, columnas).
+- **No** puede crear ni aprobar recepcionistas.
+
+**Piensa en él como el "jefe de operaciones".**
+
+### 🟡 Recepcionista
+
+Es **la persona en el mostrador**. Su trabajo es:
+
+- Hacer check-in de los huéspedes que llegan.
+- Hacer check-out de los que se van.
+- Marcar habitaciones limpias.
+- **No** puede crear habitaciones ni aprobar cuentas.
+
+**Es la persona que atiende al público.**
+
+---
+
+## 🛠️ Primer día: cómo se arma el equipo
+
+Antes de empezar a usar el sistema, hay que **preparar las cuentas**.
+
+### Paso 1 — El administrador se crea su cuenta
+
+La cuenta del administrador **no se crea desde la página web**. Se crea directamente en el "motor" del sistema (una persona con conocimientos técnicos lo hace en el servidor).
+
+Una vez creada, el administrador ya puede entrar con su usuario y contraseña.
+
+### Paso 2 — Los recepcionistas se registran
+
+Los recepcionistas **sí pueden registrarse solos** desde la página web del hotel:
+
+1. Entrar a la página principal del sistema.
+2. Hacer click en **"Registrate como recepcionista"**.
+3. Completar el formulario:
+   - Nombre y apellido.
+   - Email.
+   - Teléfono.
+   - DNI.
+   - Domicilio.
+   - Fecha de nacimiento (el sistema calcula la edad automáticamente).
+   - Contraseña.
+4. Hacer click en **"Crear cuenta"**.
+
+⚠️ **Importante:** después del registro, la cuenta **todavía no está activa**. Aparece un mensaje que dice:
+
+> *"¡Cuenta creada! Tu cuenta está pendiente de aprobación. Un administrador debe activarla antes de que puedas iniciar sesión."*
+
+### Paso 3 — El administrador aprueba las cuentas
+
+Cuando el recepcionista se registra, el administrador lo ve en su panel:
+
+1. Entrar al sistema con su cuenta de admin.
+2. Ir a **"Dashboard"** en el menú lateral.
+3. En la sección **"Aceptar Recepcionistas"**, verá tarjetas con los datos de cada persona que se registró.
+4. Cada tarjeta tiene dos botones:
+   - **✓ (tilde verde)** → **Aprobar** la cuenta.
+   - **🚫 (círculo gris)** → **Bloquear** la cuenta.
+
+Cuando el admin hace click en ✓, la cuenta del recepcionista pasa a **"Activo"** y ya puede entrar al sistema.
+
+### Paso 4 — El recepcionista ya puede entrar
+
+Después de la aprobación, el recepcionista puede loguearse con su **email** y contraseña. Entra directamente a la pantalla de habitaciones.
+
+---
+
+## 🔑 El día a día del Recepcionista
+
+### Al llegar al trabajo
+
+**1. Iniciar sesión:**
+
+- Abrir la página del sistema.
+- Ingresar **email** y **contraseña**.
+- Hacer click en **"Ingresar al turno"**.
+
+**2. Ver el tablero de habitaciones:**
+
+Una vez adentro, ve una pantalla como esta:
+
+- Cada cuadrado representa una habitación.
+- Los colores indican el estado:
+  - 🟢 **Verde** → LIBRE (disponible para un huésped).
+  - 🔴 **Rojo** → OCUPADA (tiene un huésped adentro).
+  - 🟡 **Amarillo** → SUCIA (esperando que la limpien).
+
+Arriba del tablero hay filtros para ver solo ciertos pisos, tipos de habitación o estados.
+
+### Cuando llega un huésped (Check-in)
+
+**1.** Ir a la sección **"Check-in / Check-out"** en el menú lateral.
+
+**2.** En la pestaña **"Check-in"**, aparecen todas las habitaciones libres.
+
+**3.** Hacer click en la habitación donde va a dormir el huésped.
+
+**4.** Completar el formulario:
+
+- Nombre completo del huésped.
+- Número de documento (DNI, pasaporte, etc.).
+- Teléfono (opcional).
+- Email (opcional).
+- Fecha de salida.
+
+**5.** El sistema **calcula automáticamente**:
+
+- Cuántas noches se va a quedar.
+- Cuánto hay que cobrar de depósito.
+
+**6.** Hacer click en **"Confirmar Check-in"**.
+
+✅ La habitación pasa automáticamente a estado **OCUPADA** (rojo).
+
+### Cuando se va un huésped (Check-out)
+
+**1.** Ir a la sección **"Check-in / Check-out"**.
+
+**2.** En la pestaña **"Check-out"**, aparecen las habitaciones ocupadas.
+
+**3.** Hacer click en la habitación del huésped que se va.
+
+**4.** El sistema muestra los datos del huésped y el **total a cobrar**.
+
+**5.** Cobrar el saldo pendiente.
+
+**6.** Hacer click en **"Confirmar Check-out"**.
+
+✅ La habitación pasa automáticamente a estado **SUCIA** (amarillo).
+
+### Cuando termina la limpieza (Marcar limpia)
+
+**1.** Ir a la sección **"Check-in / Check-out"**.
+
+**2.** En la pestaña **"Limpiar"**, aparecen las habitaciones sucias.
+
+**3.** Cuando la persona de limpieza termina, hacer click en **"✓ Marcar como limpia"**.
+
+✅ La habitación vuelve a estado **LIBRE** (verde) y ya puede asignarse a otro huésped.
+
+---
+
+## 👑 El día a día del Administrador
+
+El administrador tiene **más responsabilidades**. Su panel principal se llama **"Dashboard"** y tiene dos pestañas:
+
+### Pestaña 1 — Aceptar Recepcionistas
+
+Acá ve las tarjetas de todas las personas que se registraron.
+
+**Los estados posibles de cada tarjeta son:**
+
+| Color de la tarjeta | Estado | Qué significa |
+|---|---|---|
+| ⚪ **Blanca** | Pendiente | Se registró pero todavía no fue aprobada |
+| 🟢 **Verde** | Aceptado | Puede usar el sistema normalmente |
+| ⚫ **Gris (con opacidad)** | Bloqueado | No puede entrar al sistema |
+
+**Botones de acción:**
+
+- **✓ Aprobar**: activa la cuenta. Solo aparece si la tarjeta está pendiente o bloqueada.
+- **🚫 Bloquear**: desactiva la cuenta. Solo aparece si la tarjeta está pendiente o aprobada.
+
+⚠️ **Bloquear NO elimina la cuenta.** La persona sigue existiendo en el sistema pero no puede entrar. Se puede reactivar en cualquier momento apretando ✓ de nuevo.
+
+### Pestaña 2 — Editar Hotel
+
+Acá el administrador puede **configurar el hotel**:
+
+- **Crear nuevas habitaciones** (con número, tipo, piso y precio).
+- **Agregar nuevos pisos**.
+- **Reordenar los pisos** (subir o bajar).
+- **Ocultar pisos completos** (por ejemplo, si un piso está en refacción).
+- **Ocultar habitaciones individuales**.
+- **Elegir cuántas columnas mostrar** en el tablero (4, 5 o 6).
+
+### Estadísticas
+
+En **"Estadísticas"** (próximamente), el admin verá:
+
+- Ocupación del día.
+- Check-ins y check-outs realizados.
+- Ingresos del día.
+- Reportes por período.
+
+---
+
+## 🔍 El día a día del Supervisor
+
+El supervisor tiene un menú más reducido. Su trabajo se centra en:
+
+### Estadísticas
+
+Ve la misma sección de estadísticas que el administrador. Ahí puede:
+
+- Consultar la ocupación del hotel.
+- Ver cuántos check-ins y check-outs se hicieron.
+- Analizar los ingresos por día o período.
+
+### Editar Hotel
+
+También puede acceder a la configuración del hotel para:
+
+- Reordenar pisos.
+- Ajustar el diseño del tablero.
+
+⚠️ **Lo que el supervisor NO puede hacer:**
+
+- Aprobar o bloquear recepcionistas.
+- Crear nuevas habitaciones.
+
+---
+
+## 🎨 Los estados de una habitación
+
+Cada habitación tiene un **estado** que indica qué se puede hacer con ella:
+
+| Estado | Color | Significado | ¿Se puede hacer check-in? |
+|---|---|---|---|
+| 🟢 **LIBRE** | Verde | Está limpia y disponible | ✅ Sí |
+| 🔴 **OCUPADA** | Rojo | Tiene un huésped adentro | ❌ No |
+| 🟡 **SUCIA** | Amarillo | Se fue el huésped, esperando limpieza | ❌ No |
+
+### Flujo visual de una habitación
+
+
+🟢 LIBRE → [check-in] → 🔴 OCUPADA → [check-out] → 🟡 SUCIA → [marcar limpia] → 🟢 LIBRE
+
+
 
 ### ¿Y las habitaciones "ocultas"?
 
