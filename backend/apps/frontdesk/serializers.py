@@ -59,3 +59,5 @@ class CheckInSerializer(serializers.Serializer):
                 {"fecha_salida": "La fecha de salida debe ser posterior a hoy."}
             )
         return data
+class CambiarSalidaSerializer(serializers.Serializer):
+    fecha_salida = serializers.DateField()

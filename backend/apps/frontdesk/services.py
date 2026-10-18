@@ -1,9 +1,7 @@
 from datetime import date
-
+from django.utils import timezone
 from django.db import transaction
-
 from apps.rooms.models import Habitacion
-
 from .models import Huesped, Reserva
 
 
@@ -84,4 +82,50 @@ def registrar_checkout(reserva_id: int) -> Reserva:
     habitacion.estado = "SUCIA"
     habitacion.save(update_fields=["estado"])
 
+    return reserva
+
+@transaction.atomic
+def cancelar_reserva(reserva_id: int) -> Reserva:
+    reserva = (
+        Reserva.objects.select_for_update()
+        .select_related("habitacion")
+        .get(pk=reserva_id)
+    )
+
+    if reserva.estado not in (Reserva.Estado.PENDIENTE, Reserva.Estado.CHECKIN):
+        raise ValueError(
+            f"No se puede cancelar una reserva en estado {reserva.estado}."
+        )
+
+    estaba_en_casa = reserva.estado == Reserva.Estado.CHECKIN
+
+    reserva.estado = Reserva.Estado.CANCELADA
+    reserva.save(update_fields=["estado"])
+
+    habitacion = reserva.habitacion
+    if estaba_en_casa and habitacion.estado == "OCUPADA":
+        habitacion.estado = "LIBRE"
+        habitacion.save(update_fields=["estado"])
+
+    return reserva
+
+@transaction.atomic
+def cambiar_fecha_salida(reserva_id: int, nueva_fecha_salida: date) -> Reserva:
+    """
+    Extiende (o acorta) la estadía de una reserva activa (CHECKIN).
+    La nueva fecha de salida debe ser posterior a hoy.
+    """
+    reserva = Reserva.objects.select_for_update().get(pk=reserva_id)
+
+    if reserva.estado != Reserva.Estado.CHECKIN:
+        raise ValueError(
+            f"Solo se puede cambiar la salida de una reserva activa "
+            f"(estado actual: {reserva.estado})."
+        )
+
+    if nueva_fecha_salida <= timezone.localdate():
+        raise ValueError("La nueva fecha de salida debe ser posterior a hoy.")
+
+    reserva.fecha_salida = nueva_fecha_salida
+    reserva.save(update_fields=["fecha_salida"])
     return reserva

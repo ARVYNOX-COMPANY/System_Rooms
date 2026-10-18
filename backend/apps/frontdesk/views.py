@@ -5,8 +5,7 @@ from rest_framework.response import Response
 
 from . import services
 from .models import Reserva
-from .serializers import CheckInSerializer, ReservaSerializer
-
+from .serializers import CambiarSalidaSerializer, CheckInSerializer, ReservaSerializer
 
 class ReservaViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -48,6 +47,52 @@ class ReservaViewSet(viewsets.ReadOnlyModelViewSet):
         """
         try:
             reserva = services.registrar_checkout(int(pk))
+        except Reserva.DoesNotExist:
+            return Response(
+                {"detail": "Reserva no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(ReservaSerializer(reserva).data)
+
+    @action(detail=True, methods=["post"], url_path="cancelar")
+    def cancelar(self, request, pk=None):
+        """
+        POST /api/v1/reservas/{id}/cancelar/
+        Cambia la reserva a CANCELADA y libera la habitación si estaba ocupada.
+        """
+        try:
+            reserva = services.cancelar_reserva(int(pk))
+        except Reserva.DoesNotExist:
+            return Response(
+                {"detail": "Reserva no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(ReservaSerializer(reserva).data)
+
+    def partial_update(self, request, pk=None):
+        """
+        PATCH /api/v1/reservas/{id}/
+        Extiende la estadía. Solo acepta {"fecha_salida": "AAAA-MM-DD"}.
+        """
+        serializer = CambiarSalidaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            reserva = services.cambiar_fecha_salida(
+                int(pk), serializer.validated_data["fecha_salida"]
+            )
         except Reserva.DoesNotExist:
             return Response(
                 {"detail": "Reserva no encontrada."},

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Squares2X2Icon } from '@heroicons/react/24/outline'
+import { getSessionRole } from '../api/auth'
 import type { Room, RoomFilterValues } from '../types/room'
 import type { GridLayout } from '../types/gridLayout'
 import { AddRoomCard } from './AddRoomCard'
@@ -40,6 +41,9 @@ export function RoomGrid({ rooms, layout, onAddFloor, onEditGrid }: RoomGridProp
     }, [visibleRooms, layout.floorOrder])
     const cls = gridClass(layout.columns)
 
+    // 🔥 Solo ADMIN puede crear habitaciones
+    const isAdmin = getSessionRole() === 'ADMIN'
+
     return (
         <section className="flex flex-col gap-4">
             <RoomFilters
@@ -48,24 +52,16 @@ export function RoomGrid({ rooms, layout, onAddFloor, onEditGrid }: RoomGridProp
                 types={getUniqueTypes(rooms)}
                 onChange={setFilters}
             />
-            <div className="flex justify-end">
-                <button
-                    type="button"
-                    title="Editar grilla"
-                    aria-label="Editar grilla"
-                    onClick={onEditGrid}
-                    className="rounded-full border border-slate-300 bg-white p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                >
-                    <Squares2X2Icon className="h-4 w-4" />
-                </button>
-            </div>
 
             {visibleRooms.length === 0 ? (
                 <div className="flex flex-col gap-3">
                     <p className="text-slate-600">Ninguna habitación coincide con los filtros.</p>
-                    {filters.floor !== 'all' && (
+                    {filters.floor !== 'all' && isAdmin && (
                         <div className={cls}>
-                            <AddRoomCard floor={filters.floor} onClick={() => onAddFloor(filters.floor as number)} />
+                            <AddRoomCard
+                                floor={filters.floor}
+                                onClick={() => onAddFloor(filters.floor as number)}
+                            />
                         </div>
                     )}
                 </div>
@@ -76,7 +72,10 @@ export function RoomGrid({ rooms, layout, onAddFloor, onEditGrid }: RoomGridProp
                             {floorRooms.map((room) => (
                                 <RoomCard key={room.id} room={room} />
                             ))}
-                            <AddRoomCard floor={floor} onClick={() => onAddFloor(floor)} />
+                            {/* 🔥 Solo ADMIN ve el "+ Nuevo" de cada piso */}
+                            {isAdmin && (
+                                <AddRoomCard floor={floor} onClick={() => onAddFloor(floor)} />
+                            )}
                         </div>
                     ))}
                 </div>

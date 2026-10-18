@@ -22,6 +22,7 @@ class Habitacion(models.Model):
         max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
     oculta = models.BooleanField(default=False)
+    en_mantenimiento = models.BooleanField(default=False)
 
     class Meta:
         db_table = "habitaciones"

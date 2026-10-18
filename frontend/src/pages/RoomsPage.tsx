@@ -8,6 +8,7 @@ import { useRooms } from '../hooks/useRooms'
 import type { CreateRoomData } from '../schemas/roomSchema'
 import type { GridLayout } from '../types/gridLayout'
 import { getUniqueFloors } from '../utils/filterRooms'
+import { getSessionRole } from '../api/auth'
 // import { toggleOculta } from '../api/rooms'
 import { toggleOculta, togglePisoOculta } from '../api/rooms'
 
@@ -17,6 +18,8 @@ export function RoomsPage() {
     const [isGridOpen, setIsGridOpen] = useState(false)
     const [prefillFloor, setPrefillFloor] = useState(1)
     const [serverError, setServerError] = useState<string | null>(null)
+
+    const isAdmin = getSessionRole() === 'ADMIN'
 
     const allFloors = useMemo(() => getUniqueFloors(rooms), [rooms])
     const { layout, syncFloors, setLayout } = useGridLayout()
@@ -82,13 +85,15 @@ export function RoomsPage() {
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <h1 className="text-xl font-semibold">Habitaciones</h1>
-                <button
-                    type="button"
-                    onClick={() => openForFloor(1)}
-                    className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white"
-                >
-                    Nueva habitación
-                </button>
+                {isAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => openForFloor(1)}
+                        className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white"
+                    >
+                        Nueva habitación
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -101,7 +106,7 @@ export function RoomsPage() {
                     <RoomGrid
                         rooms={visibleRooms}
                         layout={layout}
-                        onAddFloor={openForFloor}
+                        onAddFloor={isAdmin ? openForFloor : undefined}
                         onEditGrid={() => setIsGridOpen(true)}
                     />
                 </>
